@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 1, "id": "fixture_tests", "version": "0.1.0", "name": "Harness Fixture GameTests",
+  "license": "MIT", "environment": "*", "entrypoints": { "fabric-gametest": ["dev.mch.fixture.FixtureGameTests"] },
+  "depends": { "fixture": "*", "fabric-gametest-api-v1": "*" }
+}

@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "fixture",
+  "version": "${version}",
+  "name": "Harness Fixture",
+  "description": "A persisted counter with a synchronized screen for harness verification.",
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": { "main": ["dev.mch.fixture.FixtureMod"], "client": ["dev.mch.fixture.client.FixtureClient"] },
+  "depends": { "fabricloader": ">=0.16.14", "minecraft": "~1.20.1", "java": ">=17", "fabric-api": "*" }
+}

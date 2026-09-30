@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Explicit resolved build artifacts",
+  "type": "object", "additionalProperties": false,
+  "required": ["schemaVersion", "target", "minecraft", "loader", "artifacts"],
+  "properties": {
+    "schemaVersion": { "const": 1 }, "target": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$", "maxLength": 128 },
+    "minecraft": { "type": "string", "pattern": "^(1\\.[0-9]+(\\.[0-9]+)?|[2-9][0-9]*\\.[0-9]+(\\.[0-9]+)?)$" },
+    "loader": { "enum": ["fabric", "forge", "neoforge"] }, "loaderVersion": { "type": "string", "minLength": 1 },
+    "mappings": { "type": "string", "minLength": 1 },
+    "buildEnvironment": {
+      "type": "object", "additionalProperties": false, "required": ["gradleVersion", "gradleJavaVersion", "compilerJavaVersion"],
+      "properties": { "gradleVersion": { "type": "string", "minLength": 1 }, "gradleJavaVersion": { "type": "string", "minLength": 1 }, "compilerJavaVersion": { "type": "string", "minLength": 1 } }
+    },
+    "java": {
+      "type": "object", "additionalProperties": false,
+      "properties": { "gradle": { "type": "string", "minLength": 1 }, "toolchain": { "type": "integer", "minimum": 8 }, "game": { "type": "string", "minLength": 1 } }
+    },
+    "artifacts": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["path", "kind", "side"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 }, "kind": { "enum": ["distribution", "runtime-dependency", "sources", "development"] },
+          "side": { "enum": ["client", "server", "both"] }
+        }
+      }
+    },
+    "classpath": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "sources": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Machine-local harness configuration",
+  "type": "object", "additionalProperties": false, "required": ["schemaVersion"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "assetCache": { "type": "string", "minLength": 1 },
+    "assetCaches": { "type": "object", "propertyNames": { "pattern": "^[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$" }, "additionalProperties": { "type": "string", "minLength": 1 } },
+    "tools": { "type": "object", "propertyNames": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" }, "additionalProperties": { "type": "string", "minLength": 1 } },
+    "backends": { "type": "object", "propertyNames": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" }, "additionalProperties": { "type": "string", "minLength": 1 } },
+    "java": {
+      "type": "object", "propertyNames": { "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "timeouts": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "build": { "type": "integer", "minimum": 1 }, "start": { "type": "integer", "minimum": 1 },
+        "test": { "type": "integer", "minimum": 1 }, "stop": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "eulaAccepted": { "type": "boolean" }
+  }
+}

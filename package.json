@@ -1,0 +1,45 @@
+{
+  "name": "mc-dev-harness",
+  "version": "0.1.0",
+  "description": "Reproducible Minecraft mod build and validation harness",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "bin": {
+    "mch": "dist/cli/main.js"
+  },
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "files": [
+    "dist",
+    "schemas",
+    "skills",
+    "templates",
+    "docs",
+    "fixtures",
+    "harness.config.json",
+    "harness.lock.json",
+    "!fixtures/**/.harness/**",
+    "!fixtures/**/build/**",
+    "!fixtures/**/harness.local.json",
+    "!fixtures/**/.gradle/**",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test tests/*.test.ts",
+    "check": "npm run typecheck && npm test",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "ajv": "8.20.0",
+    "sax": "1.6.1"
+  },
+  "devDependencies": {
+    "@types/node": "24.3.0",
+    "@types/sax": "1.2.7",
+    "typescript": "5.9.2"
+  }
+}

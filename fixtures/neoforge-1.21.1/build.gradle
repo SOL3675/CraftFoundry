@@ -1,0 +1,81 @@
+plugins { id 'java-library'; id 'net.neoforged.moddev' version '2.0.148' }
+version = project.mod_version
+group = 'dev.mch.fixture'
+base { archivesName = 'harness-fixture-neoforge' }
+repositories { mavenCentral() }
+dependencyLocking {
+    lockAllConfigurations()
+    // Native runtime modules differ between Windows and Linux; strict locks must match the OS.
+    lockFile = file(System.getProperty('os.name') == 'Linux' ? 'gradle/linux.lockfile' : 'gradle.lockfile')
+}
+
+java { toolchain.languageVersion = JavaLanguageVersion.of(21); withSourcesJar() }
+tasks.withType(JavaCompile).configureEach { options.release = 21; options.encoding = 'UTF-8' }
+tasks.withType(AbstractArchiveTask).configureEach { preserveFileTimestamps = false; reproducibleFileOrder = true }
+
+sourceSets {
+    gametest {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+apply from: '../common/shared-sources.gradle'
+configurations.gametestImplementation.extendsFrom configurations.implementation
+configurations.gametestRuntimeOnly.extendsFrom configurations.runtimeOnly
+
+neoForge {
+    version = project.neo_version
+    addModdingDependenciesTo sourceSets.gametest
+    runs {
+        client { client() }
+        server { server(); programArgument '--nogui' }
+        gameTestServer {
+            type = 'gameTestServer'
+            sourceSet = sourceSets.gametest
+            gameDirectory = layout.buildDirectory.dir('gametest')
+            systemProperty 'neoforge.enabledGameTestNamespaces', 'fixture'
+            systemProperty 'mch.fixture.reportFile', file('build/test-results/gametest/results.xml').absolutePath
+        }
+    }
+    mods {
+        fixture { sourceSet sourceSets.main }
+        fixture_tests { sourceSet sourceSets.gametest }
+    }
+}
+
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.4'
+}
+processResources { inputs.property 'version', project.version; filesMatching('META-INF/neoforge.mods.toml') { expand version: project.version } }
+test { useJUnitPlatform(); outputs.upToDateWhen { false } }
+tasks.register('harnessUnit') { dependsOn test }
+tasks.named('runGameTestServer') {
+    doFirst {
+        if (System.getenv('MCH_EULA_ACCEPTED') == 'true') {
+            file('build/gametest').mkdirs()
+            file('build/gametest/eula.txt').text = 'eula=true\n'
+        }
+        file('build/test-results/gametest').mkdirs()
+        delete file('build/test-results/gametest/results.xml')
+    }
+}
+tasks.register('harnessServerGameTest') { dependsOn 'runGameTestServer' }
+ext.harnessExportSpec = [
+    target: 'neoforge-1.21.1', loader: 'neoforge', java: 21, declaredMinecraft: project.minecraft_version,
+    artifactTasks: ['jar', 'copySharedInspectionSources'],
+    resolved: {
+        def resolvedModule = { moduleName ->
+            def dependency = configurations.compileClasspath.incoming.resolutionResult.allComponents.find {
+                it.id instanceof org.gradle.api.artifacts.component.ModuleComponentIdentifier && it.id.group == 'net.neoforged' && it.id.module == moduleName
+            }
+            if (dependency == null) throw new GradleException("Cannot resolve net.neoforged:${moduleName}")
+            dependency.id.version
+        }
+        def minecraft = resolvedModule('minecraft-dependencies')
+        [minecraft: minecraft, loaderVersion: resolvedModule('neoforge'), mappings: 'mojang:' + minecraft]
+    },
+    artifacts: { [[file: tasks.jar.archiveFile.get().asFile, kind: 'distribution', side: 'both']] },
+    classpath: { sourceSets.main.compileClasspath.files }, sources: ['src/main/java', 'build/harness/shared-sources/main/java']
+]
+apply from: '../../templates/gradle/harness-export.gradle'

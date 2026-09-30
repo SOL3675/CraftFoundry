@@ -1,1 +1,8 @@
-# TODO
+node_modules/
+.pnpm-store/
+dist/
+.harness/
+harness.local.json
+*.tgz
+.gradle/
+**/build/

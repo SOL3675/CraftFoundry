@@ -1,0 +1,91 @@
+plugins { id 'fabric-loom' version '1.8.13'; id 'maven-publish' }
+version = project.mod_version
+group = 'dev.mch.fixture'
+base { archivesName = 'harness-fixture' }
+repositories { mavenCentral() }
+dependencyLocking {
+    lockAllConfigurations()
+    // Native runtime modules differ between Windows and Linux; strict locks must match the OS.
+    lockFile = file(System.getProperty('os.name') == 'Linux' ? 'gradle/linux.lockfile' : 'gradle.lockfile')
+}
+
+configurations { distributionMods { transitive = false } }
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    distributionMods "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.4'
+}
+
+loom {
+    splitEnvironmentSourceSets()
+    mods { fixture { sourceSet sourceSets.main; sourceSet sourceSets.client } }
+}
+sourceSets {
+    gametest {
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+    }
+}
+apply from: '../common/shared-sources.gradle'
+loom {
+    mods { fixture_tests { sourceSet sourceSets.gametest } }
+    runs {
+        gameTest {
+            server()
+            source sourceSets.gametest
+            name 'Fixture Server GameTest'
+            runDir 'build/gametest'
+            vmArg '-Dfabric-api.gametest'
+            vmArg "-Dfabric-api.gametest.report-file=${file('build/test-results/gametest/results.xml').absolutePath}"
+        }
+    }
+}
+
+java { toolchain.languageVersion = JavaLanguageVersion.of(21); withSourcesJar() }
+tasks.withType(JavaCompile).configureEach { options.release = 21; options.encoding = 'UTF-8' }
+tasks.withType(AbstractArchiveTask).configureEach { preserveFileTimestamps = false; reproducibleFileOrder = true }
+processResources { inputs.property 'version', project.version; filesMatching('fabric.mod.json') { expand version: project.version } }
+test { useJUnitPlatform(); outputs.upToDateWhen { false } }
+tasks.register('harnessUnit') { dependsOn test }
+tasks.named('runGameTest') {
+    doFirst {
+        // Reuse only the caller's explicit consent in the isolated GameTest directory.
+        if (System.getenv('MCH_EULA_ACCEPTED') == 'true') {
+            file('build/gametest').mkdirs()
+            file('build/gametest/eula.txt').text = 'eula=true\n'
+        }
+        def reports = file('build/test-results/gametest')
+        reports.mkdirs()
+        delete file('build/test-results/gametest/results.xml')
+    }
+}
+tasks.register('harnessServerGameTest') { dependsOn 'runGameTest' }
+tasks.register('copyDistributionMods', Copy) { from configurations.distributionMods; into layout.buildDirectory.dir('harness/runtime-mods') }
+tasks.register('copyInspectionClasspath', Copy) { from sourceSets.main.compileClasspath; into layout.buildDirectory.dir('harness/classpath') }
+ext.harnessExportSpec = [
+    target: 'fabric-1.21.1', loader: 'fabric', java: 21, declaredMinecraft: project.minecraft_version,
+    artifactTasks: ['remapJar', 'copyDistributionMods', 'copyInspectionClasspath', 'copySharedInspectionSources'],
+    resolved: {
+        def resolvedModule = { configuration, groupId, moduleName ->
+            def dependency = configuration.incoming.resolutionResult.allComponents.find {
+                it.id instanceof org.gradle.api.artifacts.component.ModuleComponentIdentifier && it.id.group == groupId && it.id.module == moduleName
+            }
+            if (dependency == null) throw new GradleException("Cannot resolve ${groupId}:${moduleName}")
+            dependency.id.version
+        }
+        [minecraft: loom.minecraftProvider.minecraftVersion(),
+         loaderVersion: resolvedModule(configurations.compileClasspath, 'net.fabricmc', 'fabric-loader'),
+         mappings: 'yarn:' + resolvedModule(configurations.mappings, 'net.fabricmc', 'yarn')]
+    },
+    artifacts: {
+        def api = configurations.distributionMods.singleFile
+        [[file: tasks.remapJar.archiveFile.get().asFile, kind: 'distribution', side: 'both'],
+         [file: layout.buildDirectory.file("harness/runtime-mods/${api.name}").get().asFile, kind: 'runtime-dependency', side: 'both']]
+    },
+    classpath: { fileTree('build/harness/classpath').files }, sources: ['src/main/java', 'src/client/java', 'build/harness/shared-sources/main/java']
+]
+apply from: '../../templates/gradle/harness-export.gradle'

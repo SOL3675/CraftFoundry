@@ -1,0 +1,9 @@
+// Each fixture compiles these sources with its own pinned Java toolchain and dependencies.
+sourceSets.main.java.srcDir file('../common/src/main/java')
+sourceSets.test.java.srcDir file('../common/src/test/java')
+
+// Inspection manifests contain build-root paths only. Keep an exact, contained source snapshot.
+tasks.register('copySharedInspectionSources', Sync) {
+    from file('../common/src/main/java')
+    into layout.buildDirectory.dir('harness/shared-sources/main/java')
+}

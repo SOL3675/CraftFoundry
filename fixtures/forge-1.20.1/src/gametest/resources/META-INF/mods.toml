@@ -1,0 +1,13 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="MIT"
+[[mods]]
+modId="fixture_tests"
+version="0.1.0"
+displayName="Harness Fixture GameTests"
+[[dependencies.fixture_tests]]
+modId="fixture"
+mandatory=true
+versionRange="[0.1.0]"
+ordering="AFTER"
+side="BOTH"

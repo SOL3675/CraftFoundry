@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "tools": {
+    "mc-pilot": {
+      "version": "0.15.0",
+      "sha256": "369ea25fb7a563c97e8b9c1daed01411193579b78a838f5e774900cef8775629",
+      "url": "https://registry.npmjs.org/@kzheart_/mc-pilot/-/mc-pilot-0.15.0.tgz"
+    },
+    "mct-helper-fabric-1.21.1": {
+      "version": "0.14.0-artifact-mod.0.9.1",
+      "sha256": "1242ef239b837222fd4eee6f7d957e0e749bde9d47875d62eba14365df5cb749",
+      "url": "https://github.com/kzheart/mc-pilot/releases/download/v0.14.0/mct-client-mod-fabric-1.21.1.jar"
+    },
+    "fabric-server-1.21.1": {
+      "version": "1.21.1-loader.0.16.14-launcher.1.0.3",
+      "sha256": "44f3e6cfbefce7bc8761c3b45293d99edf2677ed947021a5ca6481907430c5aa",
+      "url": "https://meta.fabricmc.net/v2/versions/loader/1.21.1/0.16.14/1.0.3/server/jar"
+    },
+    "neoforge-server-1.21.1": {
+      "version": "21.1.252",
+      "sha256": "d0345e2a104ce4633065f572310ba6e0dd428bb6a73364cf0c2443ed9f8950ad",
+      "url": "https://maven.neoforged.net/releases/net/neoforged/neoforge/21.1.252/neoforge-21.1.252-installer.jar"
+    },
+    "mct-helper-neoforge-1.21.1": {
+      "version": "0.14.0-artifact-mod.0.9.1",
+      "sha256": "d89bd309af94c0afe6b37dc03f8e9a689b4dabf95ff53f3f04fc7df9a7587788",
+      "url": "https://github.com/kzheart/mc-pilot/releases/download/v0.14.0/mct-client-mod-neoforge-1.21.1.jar"
+    },
+    "fabric-server-1.20.1": {
+      "version": "1.20.1-loader.0.16.14-launcher.1.0.3",
+      "sha256": "8f34ac4ebd5749bad6e60b0068f063783c9b354b9e8a44be85cf34e8588fa4eb",
+      "url": "https://meta.fabricmc.net/v2/versions/loader/1.20.1/0.16.14/1.0.3/server/jar"
+    },
+    "mct-helper-fabric-1.20.1": {
+      "version": "0.14.0-artifact-mod.0.9.1",
+      "sha256": "7c97e1087f9e222513eaa80317fd01245be352be0826c1461061634ee13f9756",
+      "url": "https://github.com/kzheart/mc-pilot/releases/download/v0.14.0/mct-client-mod-fabric-1.20.1.jar"
+    },
+    "forge-server-1.20.1": {
+      "version": "1.20.1-47.3.0",
+      "sha256": "6018abce95cc058768e365865fd7cf3bd31b5c553231daf885dc385fcd6d875a",
+      "url": "https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.1-47.3.0/forge-1.20.1-47.3.0-installer.jar"
+    },
+    "mct-helper-forge-1.20.1": {
+      "version": "0.14.0-artifact-mod.0.9.1",
+      "sha256": "b93ce00ef658a2ac96ae763cbf873772ae912f0ce728a9740b70e3c85ab2bcd9",
+      "url": "https://github.com/kzheart/mc-pilot/releases/download/v0.14.0/mct-client-mod-forge-1.20.1.jar"
+    }
+  }
+}

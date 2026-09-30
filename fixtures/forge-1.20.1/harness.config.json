@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 1,
+  "projectId": "harness-fixture-forge",
+  "builds": {
+    "main": {
+      "root": ".",
+      "adapter": "gradle",
+      "java": "java17"
+    }
+  },
+  "targets": {
+    "forge-1.20.1": {
+      "minecraft": "1.20.1",
+      "loader": "forge",
+      "build": "main",
+      "java": {
+        "gradle": "java17",
+        "toolchain": 17,
+        "game": "java17"
+      },
+      "tasks": {
+        "inspect": [
+          "harnessExport"
+        ],
+        "build": [
+          "build"
+        ],
+        "unit": [
+          "harnessUnit"
+        ],
+        "serverGameTest": [
+          "harnessServerGameTest"
+        ]
+      },
+      "artifactManifest": "build/harness/forge-1.20.1.json",
+      "requiredSuites": [
+        "unit",
+        "server-gametest",
+        "server-smoke",
+        "client-smoke",
+        "multiplayer",
+        "multi-client"
+      ],
+      "caseAliases": {
+        "fixture:empty.counter_initial": "fixture.counter_initial",
+        "fixture:empty.counter_persistence": "fixture.counter_persistence"
+      },
+      "loaderVersion": "47.3.0"
+    }
+  },
+  "suites": {
+    "unit": {
+      "driver": "gradle",
+      "task": "unit",
+      "minTests": 2,
+      "results": "build/test-results/test/TEST-dev.mch.fixture.CounterStateTest.xml",
+      "expectedTests": [
+        "dev.mch.fixture.CounterStateTest.increment()",
+        "dev.mch.fixture.CounterStateTest.restoreAndBound()"
+      ]
+    },
+    "server-gametest": {
+      "driver": "gradle",
+      "task": "serverGameTest",
+      "minTests": 2,
+      "results": "build/test-results/gametest/results.xml",
+      "expectedTests": [
+        "fixture.counter_initial",
+        "fixture.counter_persistence"
+      ],
+      "eulaRequired": true
+    },
+    "server-smoke": {
+      "driver": "server-smoke",
+      "runtime": "forge-server",
+      "minTests": 2,
+      "expectedTests": [
+        "server.ready",
+        "server.stopped"
+      ],
+      "requiredCapabilities": [
+        "dedicated-server"
+      ]
+    },
+    "client-smoke": {
+      "driver": "client-smoke",
+      "runtime": "forge-server",
+      "pilot": {
+        "backend": "mc-pilot",
+        "helper": "mct-helper-forge-1.20.1"
+      },
+      "minTests": 3,
+      "expectedTests": [
+        "client.helper-free",
+        "client.joined",
+        "client.stopped"
+      ],
+      "requiredCapabilities": [
+        "dedicated-server",
+        "helper-free",
+        "real-client"
+      ]
+    },
+    "multiplayer": {
+      "driver": "fixture-multiplayer",
+      "runtime": "forge-server",
+      "pilot": {
+        "backend": "mc-pilot",
+        "helper": "mct-helper-forge-1.20.1"
+      },
+      "minTests": 6,
+      "expectedTests": [
+        "multiplayer.connected",
+        "multiplayer.placed",
+        "multiplayer.gui",
+        "multiplayer.sync",
+        "multiplayer.reconnected",
+        "multiplayer.stopped"
+      ],
+      "requiredCapabilities": [
+        "dedicated-server",
+        "fixture-observation",
+        "real-client"
+      ]
+    },
+    "multi-client": {
+      "driver": "fixture-multi-client",
+      "runtime": "forge-server",
+      "pilot": {
+        "backend": "mc-pilot",
+        "helper": "mct-helper-forge-1.20.1"
+      },
+      "minTests": 7,
+      "expectedTests": [
+        "multi-client.connected",
+        "multi-client.placed",
+        "multi-client.gui",
+        "multi-client.sync",
+        "multi-client.peer-sync",
+        "multi-client.reconnected",
+        "multi-client.stopped"
+      ],
+      "requiredCapabilities": [
+        "dedicated-server",
+        "fixture-observation",
+        "real-client",
+        "multi-client"
+      ]
+    }
+  },
+  "runtimes": {
+    "forge-server": {
+      "kind": "server",
+      "capabilities": [
+        "dedicated-server"
+      ],
+      "setup": {
+        "executable": "{java:game}",
+        "args": [
+          "-jar",
+          "{tool:forge-server-1.20.1}",
+          "--installServer",
+          "."
+        ]
+      },
+      "command": {
+        "executable": "{java:game}",
+        "args": [
+          "-Xmx1G",
+          "@libraries/net/minecraftforge/forge/1.20.1-47.3.0/{os}_args.txt",
+          "nogui"
+        ]
+      },
+      "readyPattern": "Done \\(.*\\)! For help"
+    }
+  }
+}

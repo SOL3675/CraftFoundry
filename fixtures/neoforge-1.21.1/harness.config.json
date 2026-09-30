@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 1,
+  "projectId": "harness-fixture-neoforge",
+  "builds": {
+    "main": {
+      "root": ".",
+      "adapter": "gradle",
+      "java": "java21"
+    }
+  },
+  "targets": {
+    "neoforge-1.21.1": {
+      "minecraft": "1.21.1",
+      "loader": "neoforge",
+      "build": "main",
+      "java": {
+        "gradle": "java21",
+        "toolchain": 21,
+        "game": "java21"
+      },
+      "tasks": {
+        "inspect": [
+          "harnessExport"
+        ],
+        "build": [
+          "build"
+        ],
+        "unit": [
+          "harnessUnit"
+        ],
+        "serverGameTest": [
+          "harnessServerGameTest"
+        ]
+      },
+      "artifactManifest": "build/harness/neoforge-1.21.1.json",
+      "requiredSuites": [
+        "unit",
+        "server-gametest",
+        "server-smoke",
+        "client-smoke",
+        "multiplayer",
+        "multi-client"
+      ],
+      "caseAliases": {
+        "fixture:empty.counter_initial": "fixture.counter_initial",
+        "fixture:empty.counter_persistence": "fixture.counter_persistence"
+      },
+      "loaderVersion": "21.1.252"
+    }
+  },
+  "suites": {
+    "unit": {
+      "driver": "gradle",
+      "task": "unit",
+      "minTests": 2,
+      "results": "build/test-results/test/TEST-dev.mch.fixture.CounterStateTest.xml",
+      "expectedTests": [
+        "dev.mch.fixture.CounterStateTest.increment()",
+        "dev.mch.fixture.CounterStateTest.restoreAndBound()"
+      ]
+    },
+    "server-gametest": {
+      "driver": "gradle",
+      "task": "serverGameTest",
+      "minTests": 2,
+      "results": "build/test-results/gametest/results.xml",
+      "expectedTests": [
+        "fixture.counter_initial",
+        "fixture.counter_persistence"
+      ],
+      "eulaRequired": true
+    },
+    "server-smoke": {
+      "driver": "server-smoke",
+      "runtime": "neoforge-server",
+      "minTests": 2,
+      "expectedTests": [
+        "server.ready",
+        "server.stopped"
+      ],
+      "requiredCapabilities": [
+        "dedicated-server"
+      ]
+    },
+    "client-smoke": {
+      "driver": "client-smoke",
+      "runtime": "neoforge-server",
+      "pilot": {
+        "backend": "mc-pilot",
+        "helper": "mct-helper-neoforge-1.21.1"
+      },
+      "minTests": 3,
+      "expectedTests": [
+        "client.helper-free",
+        "client.joined",
+        "client.stopped"
+      ],
+      "requiredCapabilities": [
+        "dedicated-server",
+        "helper-free",
+        "real-client"
+      ]
+    },
+    "multiplayer": {
+      "driver": "fixture-multiplayer",
+      "runtime": "neoforge-server",
+      "pilot": {
+        "backend": "mc-pilot",
+        "helper": "mct-helper-neoforge-1.21.1"
+      },
+      "minTests": 6,
+      "expectedTests": [
+        "multiplayer.connected",
+        "multiplayer.placed",
+        "multiplayer.gui",
+        "multiplayer.sync",
+        "multiplayer.reconnected",
+        "multiplayer.stopped"
+      ],
+      "requiredCapabilities": [
+        "dedicated-server",
+        "fixture-observation",
+        "real-client"
+      ]
+    },
+    "multi-client": {
+      "driver": "fixture-multi-client",
+      "runtime": "neoforge-server",
+      "pilot": {
+        "backend": "mc-pilot",
+        "helper": "mct-helper-neoforge-1.21.1"
+      },
+      "minTests": 7,
+      "expectedTests": [
+        "multi-client.connected",
+        "multi-client.placed",
+        "multi-client.gui",
+        "multi-client.sync",
+        "multi-client.peer-sync",
+        "multi-client.reconnected",
+        "multi-client.stopped"
+      ],
+      "requiredCapabilities": [
+        "dedicated-server",
+        "fixture-observation",
+        "real-client",
+        "multi-client"
+      ]
+    }
+  },
+  "runtimes": {
+    "neoforge-server": {
+      "kind": "server",
+      "capabilities": [
+        "dedicated-server"
+      ],
+      "setup": {
+        "executable": "{java:game}",
+        "args": [
+          "-jar",
+          "{tool:neoforge-server-1.21.1}",
+          "--installServer",
+          "."
+        ]
+      },
+      "command": {
+        "executable": "{java:game}",
+        "args": [
+          "-Xmx1G",
+          "@libraries/net/neoforged/neoforge/21.1.252/{os}_args.txt",
+          "nogui"
+        ]
+      },
+      "readyPattern": "Done \\(.*\\)! For help"
+    }
+  }
+}

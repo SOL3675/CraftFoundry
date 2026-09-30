@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mc-dev-harness.invalid/schemas/harness.config.schema.json",
+  "title": "Minecraft development harness shared configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "projectId", "builds", "targets", "suites", "runtimes"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "projectId": { "$ref": "#/definitions/id" },
+    "builds": {
+      "type": "object", "minProperties": 1, "propertyNames": { "$ref": "#/definitions/id" },
+      "additionalProperties": {
+        "type": "object", "additionalProperties": false, "required": ["root", "adapter"],
+        "properties": { "root": { "$ref": "#/definitions/path" }, "adapter": { "const": "gradle" }, "java": { "$ref": "#/definitions/id" } }
+      }
+    },
+    "targets": {
+      "type": "object", "minProperties": 1, "propertyNames": { "$ref": "#/definitions/id" },
+      "additionalProperties": {
+        "type": "object", "additionalProperties": false,
+        "required": ["minecraft", "loader", "build", "tasks", "artifactManifest", "requiredSuites"],
+        "properties": {
+          "minecraft": { "$ref": "#/definitions/minecraft" }, "loader": { "enum": ["fabric", "forge", "neoforge"] },
+          "loaderVersion": { "type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9.+_-]+$" },
+          "build": { "$ref": "#/definitions/id" },
+          "tasks": { "type": "object", "propertyNames": { "$ref": "#/definitions/id" }, "additionalProperties": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^[A-Za-z0-9_:.-]+$" } } },
+          "artifactManifest": { "$ref": "#/definitions/path" },
+          "requiredSuites": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/definitions/id" } },
+          "java": { "$ref": "#/definitions/java" },
+          "caseAliases": { "type": "object", "propertyNames": { "minLength": 1 }, "additionalProperties": { "type": "string", "minLength": 1 } },
+          "suiteBindings": { "type": "object", "propertyNames": { "$ref": "#/definitions/id" }, "additionalProperties": {
+            "type": "object", "additionalProperties": false, "minProperties": 1,
+            "properties": { "runtime": { "$ref": "#/definitions/id" }, "pilot": { "$ref": "#/definitions/pilot" } }
+          } }
+        }
+      }
+    },
+    "suites": {
+      "type": "object", "propertyNames": { "$ref": "#/definitions/id" },
+      "additionalProperties": {
+        "type": "object", "additionalProperties": false, "required": ["driver"],
+        "properties": {
+          "driver": { "enum": ["gradle", "process", "server-smoke", "client-smoke", "fixture-multiplayer", "fixture-multi-client", "unsupported"] }, "task": { "$ref": "#/definitions/id" },
+          "requiredCapabilities": { "$ref": "#/definitions/ids" },
+          "expectedTests": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+          "minTests": { "type": "integer", "minimum": 1 }, "results": { "$ref": "#/definitions/path" }, "runtime": { "$ref": "#/definitions/id" },
+          "eulaRequired": { "type": "boolean" },
+          "pilot": { "$ref": "#/definitions/pilot" }
+        }
+      }
+    },
+    "runtimes": {
+      "type": "object", "propertyNames": { "$ref": "#/definitions/id" },
+      "additionalProperties": {
+        "type": "object", "additionalProperties": false, "required": ["kind", "capabilities"],
+        "properties": {
+          "kind": { "enum": ["server", "client", "multiplayer"] }, "capabilities": { "$ref": "#/definitions/ids" },
+          "command": {
+            "type": "object", "additionalProperties": false, "required": ["executable", "args"],
+            "properties": { "executable": { "type": "string", "minLength": 1 }, "args": { "type": "array", "items": { "type": "string" } } }
+          },
+          "readyPattern": { "type": "string", "minLength": 1 }
+          ,"setup": {
+            "type": "object", "additionalProperties": false, "required": ["executable", "args"],
+            "properties": { "executable": { "type": "string", "minLength": 1 }, "args": { "type": "array", "items": { "type": "string" } } }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "pilot": { "type": "object", "additionalProperties": false, "required": ["backend", "helper"], "properties": { "backend": { "$ref": "#/definitions/id" }, "helper": { "$ref": "#/definitions/id" } } },
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$", "maxLength": 128 },
+    "ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/definitions/id" } },
+    "path": { "type": "string", "minLength": 1 },
+    "minecraft": { "type": "string", "pattern": "^(1\\.[0-9]+(\\.[0-9]+)?|[2-9][0-9]*\\.[0-9]+(\\.[0-9]+)?)$" },
+    "java": {
+      "type": "object", "additionalProperties": false,
+      "properties": { "gradle": { "$ref": "#/definitions/id" }, "toolchain": { "type": "integer", "minimum": 8 }, "game": { "$ref": "#/definitions/id" } }
+    }
+  }
+}

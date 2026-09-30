@@ -1,0 +1,97 @@
+name: Real fixture release suites
+
+on:
+  workflow_dispatch:
+    inputs:
+      eulaAccepted:
+        description: 'I have accepted the Minecraft EULA and authorize its reuse in isolated CI servers'
+        required: true
+        type: boolean
+        default: false
+      target:
+        description: 'Fixture target'
+        required: true
+        type: choice
+        default: all
+        options:
+          - all
+          - fabric-1.21.1
+          - neoforge-1.21.1
+          - fabric-1.20.1
+          - forge-1.20.1
+
+permissions:
+  contents: read
+
+jobs:
+  fixtures:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    env:
+      CI_EULA_ACCEPTED: ${{ inputs.eulaAccepted }}
+      MCH_CI_TARGET: ${{ inputs.target }}
+      GRADLE_USER_HOME: ${{ github.workspace }}/.harness/cache/gradle
+      npm_config_cache: ${{ github.workspace }}/.harness/cache/npm
+      LIBGL_ALWAYS_SOFTWARE: '1'
+    steps:
+      - name: Require explicit EULA acceptance
+        run: |
+          if [ "$CI_EULA_ACCEPTED" != true ]; then
+            echo '::error::Real Minecraft suites require explicit EULA acceptance. No game validation was performed.'
+            exit 1
+          fi
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24.19.0'
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17.0.16+8'
+      - name: Retain Java 17 role
+        run: echo "MCH_JAVA17=$JAVA_HOME" >> "$GITHUB_ENV"
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '21.0.8+9'
+      - name: Retain Java 21 role
+        run: echo "MCH_JAVA21=$JAVA_HOME" >> "$GITHUB_ENV"
+      - name: Install ephemeral display and audio prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y xvfb xauth mesa-utils libgl1-mesa-dri libglx-mesa0 libopenal1 libasound2t64 fonts-dejavu-core libxrandr2 libxinerama1 libxcursor1 libxi6
+      - name: Build CLI and run contracts
+        run: |
+          npm ci --ignore-scripts
+          npm run typecheck
+          npm test
+      - name: Install pinned mc-pilot without lifecycle scripts
+        run: |
+          mkdir -p .harness/ci
+          node dist/cli/main.js tools install mc-pilot --json > .harness/ci/mc-pilot-install.json
+          node .github/scripts/configure-fixtures.mjs
+      - name: Run real release suites in Xvfb
+        run: |
+          xvfb-run --auto-servernum --server-args='-screen 0 1280x720x24 -nolisten tcp' bash -euo pipefail -c '
+            glxinfo -B > .harness/ci/glxinfo.log 2>&1
+            node dist/cli/main.js doctor --json > .harness/ci/doctor.json
+            if [ "$MCH_CI_TARGET" = all ]; then
+              node dist/cli/main.js test --all --profile release --json > .harness/ci/cli-result.json
+            else
+              node dist/cli/main.js test --target "$MCH_CI_TARGET" --profile release --json > .harness/ci/cli-result.json
+            fi
+          '
+      - name: Collect bounded diagnostic evidence
+        if: always()
+        run: |
+          if [ -f .github/scripts/collect-fixture-evidence.mjs ] && [ -f dist/core/paths.js ]; then
+            node .github/scripts/collect-fixture-evidence.mjs
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: fixtures-${{ inputs.target }}-${{ github.run_id }}
+          path: .harness/ci/evidence/
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 14
