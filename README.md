@@ -4,6 +4,8 @@ Minecraft Java Edition の Mod を、AI Agent・開発者・CI が同じ CLI か
 
 Node.js 24 を使用します。利用するプロジェクトの Gradle Wrapper を尊重し、Minecraft・ローダー・依存関係は Gradle 側で固定します。Gradle、コンパイル、ゲームの Java は分けて設定できます。
 
+次のコマンドはハーネスのソースリポジトリを開発・検証する場合の手順です。配布物を別プロジェクトへ導入する手順は [配布・更新](docs/distribution.md) を参照してください。
+
 ```console
 npm ci
 npm test

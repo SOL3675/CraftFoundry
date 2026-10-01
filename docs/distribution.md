@@ -2,12 +2,76 @@
 
 パッケージ名・公開先・ライセンスを確定する前の私有パッケージとして開発する。`npm pack` でローカル配布物を生成できる。公開操作は行わない。
 
+## 配布物を作る側
+
+以下は `mc-dev-harness` のソースリポジトリで実行する。`npm test` はハーネス自体の契約テストであり、配布物を導入するプロジェクトの Mod テストではない。
+
 ```console
 npm ci
 npm test
 npm pack
+```
+
+## 配布物を導入する側
+
+生成した tarball を導入先のディレクトリへコピーし、そのディレクトリで実行する。必要なのは Node.js 24 と npm。ソースのビルド用 TypeScript や契約テストを導入先で実行する手順は不要。
+
+```console
 npm install --save-dev --save-exact ./mc-dev-harness-0.1.0.tgz
 npx mch --help
+```
+
+`npm install` は依存パッケージと `mch` コマンドを導入する。依存パッケージの `scripts` を導入先の `package.json` に追加することはない。導入先の `npm test` はそのプロジェクトの `scripts.test` を実行するため、未定義なら `Missing script: "test"` になる。導入先での `npm ci` は lockfile に従って依存を復元する操作であり、ハーネス設定やテストスクリプトを作らない。
+
+既存 Mod の検証には [existing-project](../templates/existing-project/README.md) と [設定契約](configuration.md) に従って `harness.config.json` / `harness.lock.json` / `harness.local.json` を用意し、実際の Gradle タスクと成果物へ接続する。接続後は `npx mch test --target <target-id> --suite <suite-id> --json` で実行する。
+
+## 同梱 fixture で動作を試す
+
+既存 Mod への接続前に、同梱の検証用 Mod を別の作業ディレクトリへコピーして試せる。次の PowerShell は npm の導入先で実行する。`harness-example` は新規ディレクトリで、既存ディレクトリにはコピーしない。
+
+```powershell
+$packageRoot = Join-Path (Get-Location) 'node_modules/mc-dev-harness'
+$exampleRoot = Join-Path (Get-Location) 'harness-example'
+if (Test-Path -LiteralPath $exampleRoot) { throw 'harness-example は既に存在します。別の新規パスを指定してください。' }
+New-Item -ItemType Directory -Path $exampleRoot | Out-Null
+foreach ($name in @('fixtures', 'templates', 'harness.config.json', 'harness.lock.json')) {
+    Copy-Item -LiteralPath (Join-Path $packageRoot $name) -Destination $exampleRoot -Recurse
+}
+npx mch targets --project ./harness-example --json
+```
+
+`harness-example/harness.local.json` に Java の絶対 home を指定する。次のパスは端末に配置した JDK 17 / 21 のものへ変更する。
+
+```json
+{
+  "schemaVersion": 1,
+  "java": {
+    "java17": "C:/Java/jdk-17",
+    "java21": "C:/Java/jdk-21"
+  }
+}
+```
+
+まず単体テストだけを実行できる。このコマンドは配布 JAR のビルドと純 Java の unit Suite を実行し、ゲームの起動・同期の成功を意味しない。
+
+```console
+npx mch test --project ./harness-example --target fabric-1.21.1 --suite unit --json
+```
+
+実ゲームを含む必須 Suite は [ツール](tools.md) に従って `npx mch tools install mc-pilot --project ./harness-example --json` を実行し、返された `backendRoot` を同ディレクトリの local 設定の `backends.mc-pilot` に追加する。Minecraft EULA に同意済みの場合だけ `eulaAccepted: true` を指定する。画面環境も準備し、`npx mch doctor --project ./harness-example --json` が通ってから実行する。
+
+```console
+npx mch test --project ./harness-example --target fabric-1.21.1 --profile release --json
+```
+
+導入先で `npm test` を入口にしたい場合は、接続が済んだ検証コマンドを導入先自身の `package.json` の `scripts.test` に指定する。たとえば上記の fixture unit 用なら次のようにする。既存の `test` スクリプトがあるプロジェクトでは、そのテスト構成に合わせて追加・統合する。
+
+```json
+{
+  "scripts": {
+    "test": "mch test --project ./harness-example --target fabric-1.21.1 --suite unit"
+  }
+}
 ```
 
 CLI、JSON Schema、Skills、設定例、四つの独立した検証用 fixture と純 Java の共通ソースを同じ版で配布する。ルートの `harness.config.json` / `harness.lock.json` は四つのターゲットを共通 Suite と対象別 runtime/helper binding で接続する明示設定である。同じ配置向けの設定例は [multiloader](../templates/multiloader/README.md)、ソースの境界は [構成](architecture.md) を参照する。更新時はパッケージ版と lockfile を更新し、`mch doctor --json` から環境確認を行う。schemaVersion が異なる設定・結果は暗黙に変換しない。CLI と同じ配布物のスキーマ・Skills を使用する。
