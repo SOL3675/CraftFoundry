@@ -1,6 +1,6 @@
 ---
 name: development-loop
-description: Build and validate a Minecraft mod through mc-dev-harness and inspect version-specific evidence after code changes.
+description: Build and validate a Minecraft mod through craft-foundry and inspect version-specific evidence after code changes.
 ---
 
 Select a target with `mch targets --json`. Inspect its actual resolved classpath, source paths and mappings using `mch inspect --target <id> --json` before using Minecraft APIs. Prefer those sources when current documentation differs from the target version.

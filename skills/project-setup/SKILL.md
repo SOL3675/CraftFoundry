@@ -1,6 +1,6 @@
 ---
 name: project-setup
-description: Connect an existing Minecraft Java mod project to mc-dev-harness using its Gradle Wrapper and explicit target/artifact mappings.
+description: Connect an existing Minecraft Java mod project to craft-foundry using its Gradle Wrapper and explicit target/artifact mappings.
 ---
 
 Read the installed harness `docs/configuration.md` and schema when preparing a project. Keep Minecraft, loader, mappings and plugin versions authoritative in Gradle. Define only explicitly supported targets; do not infer support from a version range.

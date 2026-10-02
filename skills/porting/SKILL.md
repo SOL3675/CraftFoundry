@@ -1,6 +1,6 @@
 ---
 name: porting
-description: Port a Minecraft mod between explicitly configured loader/version targets using mc-dev-harness without weakening required tests.
+description: Port a Minecraft mod between explicitly configured loader/version targets using craft-foundry without weakening required tests.
 ---
 
 Inspect source and destination targets separately with `mch inspect --target <id> --json`. Do not copy a new version's API into an older target without checking its resolved sources and mappings.

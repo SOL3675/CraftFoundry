@@ -6,6 +6,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { installSkills } from '../dist/core/skills.js';
 
+const { version } = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 const digest = (value: string) => createHash('sha256').update(value).digest('hex');
 async function fixture() {
   const root = await mkdtemp(path.join(tmpdir(), 'mch skills 日本語 '));
@@ -23,7 +24,7 @@ test('bundled install records package version and per-file SHA256; repeated inst
   const f = await fixture();
   try {
     const installed = await installSkills(f.destination);
-    assert.equal(installed.version, '0.1.0');
+    assert.equal(installed.version, version);
     assert.equal(installed.installed.length, 4);
     assert.deepEqual(installed.updated, []);
     assert.deepEqual(installed.preserved, []);
@@ -32,7 +33,7 @@ test('bundled install records package version and per-file SHA256; repeated inst
       assert.equal(metadata.files[name].sha256, createHash('sha256').update(await readFile(path.join(f.destination, name))).digest('hex'));
       assert.equal(metadata.files[name].version, installed.version);
     }
-    assert.deepEqual(await installSkills(f.destination), { version: '0.1.0', installed: [], updated: [], preserved: [] });
+    assert.deepEqual(await installSkills(f.destination), { version, installed: [], updated: [], preserved: [] });
     assert.ok(!(await readdir(f.destination)).some(name => name.endsWith('.tmp') || name.endsWith('.lock')));
   } finally { await f.cleanup(); }
 });

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import path from 'node:path';
+import { harnessVersion as version } from '../core/version.js';
 import { loadConfig, ConfigError } from '../core/config.js';
 import { executeRun } from '../core/runner.js';
 import { doctor } from './doctor.js';
@@ -8,7 +9,7 @@ import { redact } from '../reporting/redact.js';
 import { installSkills } from '../core/skills.js';
 import { installMcPilot } from '../core/tools.js';
 
-const usage = `mch 0.1.0 — Minecraft mod development harness
+const usage = `CraftFoundry ${version} — Minecraft mod development harness (mch)
 
 mch doctor [--json]
 mch targets [--json]
@@ -31,7 +32,7 @@ function output(value: unknown, json: boolean): void {
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   if (args.includes('--help') || !args.length) { process.stdout.write(usage); return; }
-  if (args.length === 1 && args[0] === '--version') { process.stdout.write('0.1.0\n'); return; }
+  if (args.length === 1 && args[0] === '--version') { process.stdout.write(`${version}\n`); return; }
   const json = args.includes('--json');
   try {
     const command = args.shift();

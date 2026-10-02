@@ -34,6 +34,8 @@ test('a project ignored by its parent Git repository cannot claim the parent sou
   const project = path.join(root, 'project'); await mkdir(project);
   const loaded = { root: project, config: { schemaVersion: 1, projectId: 'ignored-project', builds: {}, targets: {}, suites: {}, runtimes: {} }, local: { schemaVersion: 1 }, lock: { schemaVersion: 1, tools: {} } } as const;
   const { report: result } = await createRun(loaded, 'mch build --all');
+  const { version } = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+  assert.equal(result.harnessVersion, version);
   assert.equal(result.source.revision, undefined);
   assert.match(result.source.limitations.join('\n'), /ignored by its parent Git repository/);
 });

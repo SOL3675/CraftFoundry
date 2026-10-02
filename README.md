@@ -1,4 +1,6 @@
-# mc-dev-harness
+# CraftFoundry
+
+npm パッケージ名は `craft-foundry`、CLI は従来の `mch` です。現在の実ディレクトリは `F:\workspace\mc-dev-harness` を維持しています。CraftAtlas との依存関係と将来の private repository / サブモジュール移行は [開発境界](docs/repositories.md) を参照してください。
 
 Minecraft Java Edition の Mod を、AI Agent・開発者・CI が同じ CLI からビルドし、検証結果と証拠を保存する TypeScript / Node.js ハーネスです。
 

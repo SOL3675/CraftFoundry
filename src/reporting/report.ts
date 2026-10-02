@@ -1,3 +1,4 @@
+import { harnessVersion } from '../core/version.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readFile, realpath, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -59,7 +60,7 @@ export async function createRun(loaded: LoadedConfig, command: string): Promise<
   }
   const report: RunReport = {
     schemaVersion: 1, id, command, startedAt: new Date().toISOString(), status: 'infrastructure-error',
-    harnessVersion: '0.1.0', platform: { os: process.platform, arch: process.arch, node: process.version },
+    harnessVersion, platform: { os: process.platform, arch: process.arch, node: process.version },
     source, configuration: redact(loaded.config), lock: loaded.lock, targets: [],
     reproduction: { command, limitations: [...source.limitations] },
   };

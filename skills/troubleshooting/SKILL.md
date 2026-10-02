@@ -1,6 +1,6 @@
 ---
 name: troubleshooting
-description: Diagnose mc-dev-harness build and game validation failures using structured reports, logs and recorded artifact identities.
+description: Diagnose craft-foundry build and game validation failures using structured reports, logs and recorded artifact identities.
 ---
 
 Read `mch report --run <run-id> --json` and the referenced evidence before changing code. Distinguish a failed assertion from infrastructure errors, unsupported drivers, cancellation, timeouts and zero discovered tests.

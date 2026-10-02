@@ -5,4 +5,4 @@ dist/
 harness.local.json
 *.tgz
 .gradle/
-**/build/
+fixtures/**/build/

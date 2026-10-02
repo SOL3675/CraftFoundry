@@ -1,10 +1,10 @@
 # 配布と更新
 
-パッケージ名・公開先・ライセンスを確定する前の私有パッケージとして開発する。`npm pack` でローカル配布物を生成できる。公開操作は行わない。
+CraftFoundry は npm パッケージ `craft-foundry` としてローカル配布する私有プロジェクトです。`private: true` と `UNLICENSED` を維持します。`npm pack` でローカル配布物を生成できる。公開操作は行わない。
 
 ## 配布物を作る側
 
-以下は `mc-dev-harness` のソースリポジトリで実行する。`npm test` はハーネス自体の契約テストであり、配布物を導入するプロジェクトの Mod テストではない。
+以下は `craft-foundry` のソースリポジトリで実行する。`npm test` はハーネス自体の契約テストであり、配布物を導入するプロジェクトの Mod テストではない。
 
 ```console
 npm ci
@@ -17,7 +17,7 @@ npm pack
 生成した tarball を導入先のディレクトリへコピーし、そのディレクトリで実行する。必要なのは Node.js 24 と npm。ソースのビルド用 TypeScript や契約テストを導入先で実行する手順は不要。
 
 ```console
-npm install --save-dev --save-exact ./mc-dev-harness-0.1.0.tgz
+npm install --save-dev --save-exact ./craft-foundry-0.1.1.tgz
 npx mch --help
 ```
 
@@ -30,7 +30,7 @@ npx mch --help
 既存 Mod への接続前に、同梱の検証用 Mod を別の作業ディレクトリへコピーして試せる。次の PowerShell は npm の導入先で実行する。`harness-example` は新規ディレクトリで、既存ディレクトリにはコピーしない。
 
 ```powershell
-$packageRoot = Join-Path (Get-Location) 'node_modules/mc-dev-harness'
+$packageRoot = Join-Path (Get-Location) 'node_modules/craft-foundry'
 $exampleRoot = Join-Path (Get-Location) 'harness-example'
 if (Test-Path -LiteralPath $exampleRoot) { throw 'harness-example は既に存在します。別の新規パスを指定してください。' }
 New-Item -ItemType Directory -Path $exampleRoot | Out-Null
