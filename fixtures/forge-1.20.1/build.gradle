@@ -11,6 +11,7 @@ dependencyLocking {
 java { toolchain.languageVersion = JavaLanguageVersion.of(17); withSourcesJar() }
 tasks.withType(JavaCompile).configureEach { options.release = 17; options.encoding = 'UTF-8' }
 tasks.withType(AbstractArchiveTask).configureEach { preserveFileTimestamps = false; reproducibleFileOrder = true }
+tasks.withType(Jar).configureEach { from('LICENSE') { into 'META-INF' } }
 sourceSets {
     gametest {
         compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath

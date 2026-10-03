@@ -1,6 +1,6 @@
 # Development and local distribution
 
-Use Node.js 24.19.0 and npm 11.9.0 when producing reproducible consumer packages. Keep `package-lock.json` authoritative. `private: true` and `UNLICENSED` intentionally prevent registry publication and do not confer an open-source license. Fixture MIT licenses and Gradle Apache-2.0 notices apply only to their respective files.
+Use Node.js 24.19.0 and npm 11.9.0 when producing reproducible consumer packages. Keep `package-lock.json` authoritative. Original CraftFoundry code and documentation use [MIT](../LICENSE); separate fixture licenses and third-party notices remain applicable to their respective files. `private: true` continues to prevent npm registry publication.
 
 ```console
 npm ci --ignore-scripts
@@ -8,7 +8,7 @@ npm run check
 npm pack
 ```
 
-`prepack` builds TypeScript. The package includes the CLI, six explicit consumer API subpaths, schemas, Skills, templates, docs, and fixtures. It excludes caches, machine configuration, game downloads, credentials, and run evidence. Review `npm pack --dry-run --json` when changing the package allowlist. Verify a real packed consumer, not only this source checkout.
+`prepack` builds TypeScript. The package includes the CLI, six explicit consumer API subpaths, schemas, Skills, templates, docs, fixtures, root LICENSE, and existing fixture/Gradle notices. Fixture binary and source JARs include their existing MIT license in `META-INF/LICENSE`. The package excludes caches, machine configuration, game downloads, credentials, and run evidence. Review `npm pack --dry-run --json` when changing the package allowlist. Verify a real packed consumer, not only this source checkout.
 
 ## CraftAtlas consumer
 
@@ -33,7 +33,7 @@ Foundry must never install Atlas, recurse into submodules during bootstrap, or a
 Create the tarball in a reviewed source checkout, copy it into an ignored local dependency directory in the consumer, and install it with an exact file dependency:
 
 ```console
-npm install --save-dev --save-exact ./craft-foundry-0.1.2.tgz --ignore-scripts
+npm install --save-dev --save-exact ./craft-foundry-0.1.3.tgz --ignore-scripts
 npx mch --help
 ```
 

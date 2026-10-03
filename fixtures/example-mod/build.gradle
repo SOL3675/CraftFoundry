@@ -48,6 +48,7 @@ loom {
 java { toolchain.languageVersion = JavaLanguageVersion.of(21); withSourcesJar() }
 tasks.withType(JavaCompile).configureEach { options.release = 21; options.encoding = 'UTF-8' }
 tasks.withType(AbstractArchiveTask).configureEach { preserveFileTimestamps = false; reproducibleFileOrder = true }
+tasks.withType(Jar).configureEach { from('LICENSE') { into 'META-INF' } }
 processResources { inputs.property 'version', project.version; filesMatching('fabric.mod.json') { expand version: project.version } }
 test { useJUnitPlatform(); outputs.upToDateWhen { false } }
 tasks.register('harnessUnit') { dependsOn test }

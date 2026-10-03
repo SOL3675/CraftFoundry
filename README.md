@@ -19,7 +19,7 @@ node dist/cli/main.js --help
 
 ## Use
 
-The package is unpublished and remains `private: true`, `UNLICENSED`. See [distribution and development](docs/distribution.md) for local packages and the independent [CraftAtlas repository](https://github.com/SOL3675/CraftAtlas). No registry publication is required.
+The package is unpublished and remains `private: true`. See [distribution and development](docs/distribution.md) for local packages and the independent [CraftAtlas repository](https://github.com/SOL3675/CraftAtlas). No registry publication is required.
 
 Connect a Gradle project using [configuration](docs/configuration.md), the [existing-project example](templates/existing-project/README.md), or the [multiloader example](templates/multiloader/README.md). Configure machine-specific Java homes and tools in ignored `harness.local.json`.
 
@@ -35,4 +35,8 @@ mch report --run <run-id> --json
 
 Reports and JUnit output live in `.harness/runs/<run-id>/`. Exit codes are 0 for success, 1 for failed validation, and 2 for configuration or environment errors. JSON mode emits one object to stdout and progress to stderr. Required unsupported, skipped, or zero-detected tests cannot pass a release gate.
 
-See [tools](docs/tools.md), [Skills](docs/skills.md), [Linux setup](docs/linux.md), [CI](docs/ci.md), and [support constraints](docs/support.md). Fixture licenses and Gradle notices remain with their files; making this repository public does not grant a license for the unlicensed harness.
+See [tools](docs/tools.md), [Skills](docs/skills.md), [Linux setup](docs/linux.md), [CI](docs/ci.md), and [support constraints](docs/support.md).
+
+## License
+
+Original CraftFoundry code and documentation are licensed under [MIT](LICENSE), copyright (c) 2026 SOL3675. Files with separate license or copyright notices retain those terms and notices, including the fixture MIT licenses and Gradle Wrapper's Apache-2.0 headers and bundled notices. Dependencies, downloaded tools, Minecraft, and other Mods retain their own licenses. The npm package includes LICENSE and the existing fixture/Gradle notices; fixture binary and source JARs include their existing MIT license in `META-INF/LICENSE`.

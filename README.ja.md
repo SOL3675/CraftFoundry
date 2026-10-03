@@ -38,3 +38,7 @@ mch report --run <run-id> --json
 固定バックエンドは `mch tools install mc-pilot --project <directory> --json`、Skills は `mch skills install --destination <directory> --json` で導入できます。初期設定は [ツール](docs/tools.md) と [配布・更新](docs/distribution.md)、OS ごとの設定は [Linux](docs/linux.md) を参照してください。
 
 固定 Java と Xvfb による CI 設定と成功・失敗時の証拠回収は [CI](docs/ci.md)、配布用 workflow は `templates/ci` にあります。
+
+## ライセンス
+
+CraftFoundry 独自のコードとドキュメントには [MIT](LICENSE) を適用します（Copyright (c) 2026 SOL3675）。個別のライセンス・著作権表示があるファイルは、その条件と表示を維持します。既存 fixture の MIT 表示と Gradle Wrapper の Apache-2.0 ヘッダー・同梱表示は変更しません。依存ライブラリ、取得するツール、Minecraft、他の Mod はそれぞれのライセンスに従います。npm パッケージには LICENSE と既存の fixture・Gradle 表示を、fixture のバイナリ・ソース JAR には既存の MIT 本文を `META-INF/LICENSE` として同梱します。npm パッケージは引き続き未公開・`private: true` です。
