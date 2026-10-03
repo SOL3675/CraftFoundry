@@ -1,9 +1,7 @@
-# 既存プロジェクトへ接続する
+# Connect an existing project
 
-この設定例をプロジェクトへコピーし、Minecraft・ローダー、Java の参照名、既存の Gradle タスク、実際の JUnit 結果ファイルを合わせる。Mod ソースを特定テンプレートへ移行する必要はない。
+Copy these configuration examples into the project and adapt Minecraft/loader pins, Java role names, existing Gradle tasks, and actual JUnit result paths. No Mod source migration is required.
 
-`build/harness/fabric-1.21.1.json` に、解決済みの版・マッピングと明示した配布 JAR・実行依存を出力する。[設定契約](../../docs/configuration.md) の artifact manifest 例を使う。Gradle のエクスポートを後から追加する場合は `tasks.inspect` に対応タスクを設定する。生成済み JAR のワイルドカード選択は行わない。
+Export resolved versions/mappings and explicit distribution/runtime JARs to `build/harness/fabric-1.21.1.json`; see [configuration](../../docs/configuration.md). Set `tasks.inspect` to the exporter task when one is available. Never select a distribution by a JAR wildcard.
 
-端末の Java home は無視対象の `harness.local.json` に配置する。初期設定で `mch doctor --json` と `mch inspect --target fabric-1.21.1 --json` を実行する。必須 Suite の未実装は unsupported のまま明示する。プロジェクトの side・機能を根拠に必須条件を決め、接続できてから実際の Driver に置き換える。
-
-共有設定・Gradle 依存 lock と CLI 版をコミットする。`.harness/`、`harness.local.json`、個人の `.minecraft`、認証情報は共有しない。
+Keep Java homes in ignored `harness.local.json`. Run `mch doctor --json` and `mch inspect --target fabric-1.21.1 --json`. Leave required unimplemented suites explicitly unsupported until connected to a real driver. Commit shared config, Gradle dependency locks, and the pinned harness dependency; exclude `.harness/`, local settings, personal game data, and credentials.

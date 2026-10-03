@@ -1,7 +1,7 @@
 {
   "name": "craft-foundry",
   "version": "0.1.1",
-  "description": "CraftFoundry — reproducible Minecraft mod build and validation harness",
+  "description": "CraftFoundry \u2014 reproducible Minecraft mod build and validation harness",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
@@ -24,7 +24,8 @@
     "!fixtures/**/build/**",
     "!fixtures/**/harness.local.json",
     "!fixtures/**/.gradle/**",
-    "README.md"
+    "README.md",
+    "README.ja.md"
   ],
   "scripts": {
     "build": "node scripts/clean-dist.mjs && tsc -p tsconfig.json",

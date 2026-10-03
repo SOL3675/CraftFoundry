@@ -1,23 +1,27 @@
 # CraftFoundry
 
-npm パッケージ名は `craft-foundry`、CLI は従来の `mch` です。現在の実ディレクトリは `F:\workspace\mc-dev-harness` を維持しています。CraftAtlas との依存関係と将来の private repository / サブモジュール移行は [開発境界](docs/repositories.md) を参照してください。
+[日本語](README.ja.md)
 
-Minecraft Java Edition の Mod を、AI Agent・開発者・CI が同じ CLI からビルドし、検証結果と証拠を保存する TypeScript / Node.js ハーネスです。
+CraftFoundry is a Minecraft Java Edition build and validation harness for developers, agents, and CI. The npm package is `craft-foundry`; its CLI is `mch`. It uses each project's Gradle Wrapper and records explicit artifacts, test results, and evidence.
 
-Node.js 24 を使用します。利用するプロジェクトの Gradle Wrapper を尊重し、Minecraft・ローダー・依存関係は Gradle 側で固定します。Gradle、コンパイル、ゲームの Java は分けて設定できます。
+## Develop
 
-次のコマンドはハーネスのソースリポジトリを開発・検証する場合の手順です。配布物を別プロジェクトへ導入する手順は [配布・更新](docs/distribution.md) を参照してください。
+Use Node.js 24 (CI: 24.19.0) and npm (package generation: 11.9.0). From this repository:
 
 ```console
-npm ci
-npm test
-npm run build
+npm ci --ignore-scripts
+npm run check
+npm pack
 node dist/cli/main.js --help
 ```
 
-導入先ではパッケージの版を開発依存として固定し、`mch` を呼び出します。プロジェクトへの接続は [設定契約](docs/configuration.md) を参照してください。
+`npm run check` checks TypeScript and harness contracts. These tests use dummy runtimes and do not establish real Minecraft support. Generated `dist/`, tarballs, and `.harness/` are ignored.
 
-4 ターゲットの検証例はルートの共有設定と [推奨構成](templates/multiloader/README.md) にあります。独立した Gradle ビルドと共通 Java ソースを含みます。既存 Mod のソース構成を移行せずに接続する例は [existing-project](templates/existing-project/README.md) を参照してください。
+## Use
+
+The package is unpublished and remains `private: true`, `UNLICENSED`. See [distribution and development](docs/distribution.md) for local packages and the independent [CraftAtlas repository](https://github.com/SOL3675/CraftAtlas). No registry publication is required.
+
+Connect a Gradle project using [configuration](docs/configuration.md), the [existing-project example](templates/existing-project/README.md), or the [multiloader example](templates/multiloader/README.md). Configure machine-specific Java homes and tools in ignored `harness.local.json`.
 
 ```console
 mch doctor --json
@@ -29,12 +33,6 @@ mch test --all --profile release --json
 mch report --run <run-id> --json
 ```
 
-実行結果は `.harness/runs/<run-id>/report.json` に、CI 向けの判定は `junit.xml` に保存します。JSON 出力時の標準出力は一つの JSON オブジェクトに限定し、進捗は標準エラーへ送ります。終了コードは成功 `0`、不合格 `1`、設定・環境不備 `2` です。
+Reports and JUnit output live in `.harness/runs/<run-id>/`. Exit codes are 0 for success, 1 for failed validation, and 2 for configuration or environment errors. JSON mode emits one object to stdout and progress to stderr. Required unsupported, skipped, or zero-detected tests cannot pass a release gate.
 
-必須テストの未対応・未実行・検出0件はリリース成功になりません。ダミープロセスによるハーネス契約テストと実ゲームの動作確認は区別しています。検証実績は [対応状況](docs/support.md) に記録します。
-
-同梱 Skills は `skills/` にあります。コピーして導入する際は利用者の編集を維持し、CLI と同じ版の Skills・スキーマを使ってください。`harness.local.json`、`.harness/`、個人のゲーム環境は配布物に含めません。
-
-固定バックエンドは `mch tools install mc-pilot --project <directory> --json`、Skills は `mch skills install --destination <directory> --json` で導入できます。初期設定は [ツール](docs/tools.md) と [配布・更新](docs/distribution.md)、OS ごとの実証は [Linux](docs/linux.md) を参照してください。
-
-固定 Java と Xvfb による CI 設定と成功・失敗時の証拠回収は [CI](docs/ci.md)、配布用 workflow は `templates/ci` にあります。
+See [tools](docs/tools.md), [Skills](docs/skills.md), [Linux setup](docs/linux.md), [CI](docs/ci.md), and [support constraints](docs/support.md). Fixture licenses and Gradle notices remain with their files; making this repository public does not grant a license for the unlicensed harness.

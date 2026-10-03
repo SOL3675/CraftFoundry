@@ -13,6 +13,7 @@ jobs:
         with:
           node-version: '24.19.0'
           cache: npm
+      - run: npm install --global npm@11.9.0
       - run: npm ci --ignore-scripts
       - run: npm run typecheck
       - run: npm test

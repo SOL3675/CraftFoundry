@@ -1,6 +1,6 @@
 # Bundled skill installation
 
-The package includes `project-setup`, `development-loop`, `porting`, and `troubleshooting`. Install them into an explicit skill directory using the harness skill installer. The public API is `installSkills(destination)` from `dist/core/skills.js`; it returns the package version and relative file lists named `installed`, `updated`, and `preserved`.
+The package includes `project-setup`, `development-loop`, `porting`, and `troubleshooting`. Install them into an explicit skill directory using the harness skill installer. Run `mch skills install --destination <directory> --json`; it returns the package version and relative file lists named `installed`, `updated`, and `preserved`.
 
 Installation records provenance in the destination's `.mch-skills.json`: schema version, bundle version, and each managed file's SHA256 and installed version. Future installations replace a managed file only if its current hash still matches the recorded hash. Files edited by the user and existing files without provenance are preserved. Their original records remain unchanged; an unrecorded file stays unmanaged. Files removed from a later bundle are retained.
 

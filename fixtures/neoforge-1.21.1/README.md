@@ -1,21 +1,17 @@
-# NeoForge 1.21.1 fixture
+# neoforge-1.21.1 fixture
 
-`fixture:counter` を使用するとサーバーでカウンターを増やし、GUI を開く。Block Entity の値と GUI の値を同期し、ワールドへ保存する。サーバーの `/fixture state x y z` とクライアントの `/fixture_client state x y z` は状態を読み取り、`MCH_FIXTURE_SERVER` / `MCH_FIXTURE_CLIENT` の JSON をチャットへ出す。
+This independent Gradle build uses NeoForge 21.1.252, ModDevGradle 2.0.148, Gradle 9.2.1, Java 21. It shares the pure Java [counter logic](../common/README.md) and follows the [counter fixture behavior](../example-mod/README.md). Loader registration, networking, resources, and GameTests remain local to this root. See `gradle.properties`, `build.gradle`, and the Wrapper properties for exact build pins and hashes.
 
-固定構成は Minecraft 1.21.1、NeoForge 21.1.252、ModDevGradle 2.0.148、Gradle 9.2.1、Java 21。`gradle.lockfile` は実際に解決した依存を固定する。Wrapper の distribution SHA-256 も固定済み。端末の Java home は無視対象の `harness.local.json` に指定する。
+From this directory, use `gradlew.bat` on Windows or `sh gradlew` on Linux:
 
-```powershell
-$env:JAVA_HOME = '端末の Java 21 home'
-$env:GRADLE_USER_HOME = Join-Path $PWD '.harness/cache/gradle'
-.\gradlew.bat --no-daemon --console=plain build harnessExport harnessServerGameTest
+```console
+sh gradlew --no-daemon --console=plain build harnessExport harnessUnit harnessServerGameTest
 ```
 
-GameTest の実行には、同意済みの場合に限り `build/gametest/eula.txt` へ `eula=true` を配置する。Gradle タスクは EULA に自動同意しない。
+Set the matching JAVA_HOME and an explicit GRADLE_USER_HOME first. GameTests require an already accepted EULA in the isolated game directory, or `MCH_EULA_ACCEPTED=true` when the user has already accepted it. Harness users instead configure Java roles and consent in ignored `harness.local.json` at their selected project root.
 
-`harnessExport` は [共有 Gradle スクリプト](../../templates/gradle/harness-export.gradle) を使い、解決済みの Minecraft・NeoForge 版と明示した `jar` の成果物を `build/harness/neoforge-1.21.1.json` に出す。配布 JAR は `build/libs/harness-fixture-neoforge-0.1.0.jar`。専用 GameTest Mod、JUnit reporter、テスト構造は `gametest` source set に隔離し、配布 JAR に含めない。
+`harnessUnit` and `harnessServerGameTest` each require two cases. The exporter selects an explicit production JAR (after reobfuscation on Forge), excludes test-only source sets, and includes a source snapshot for inspection. Target caseAliases map actual GameTest IDs to the shared contract. Use the root release profile for server/client/multiplayer tests, which require the pinned backend and helpers.
 
-`harnessUnit` は通常の JUnit 2 件、`harnessServerGameTest` は Minecraft の実 GameTest 2 件を実行する。後者は専用テスト Mod がバニラの `JUnitLikeTestReporter` を設定して `build/test-results/gametest/results.xml` を保存する。共有設定の `caseAliases` はローダー固有の XML 名を `fixture.counter_initial` / `fixture.counter_persistence` へ対応付ける。
+The server `/fixture state x y z` and client `/fixture_client state x y z` observe state without changing it. Forge's player relay requests an independent client observation rather than reporting server state as a client value. Intentional breakSync/failStart controls are separate negative tests and do not belong in normal release configuration.
 
-`-Dmch.fixture.breakSync=true` は専用サーバー側の Block Entity と GUI の同期値を 0 に固定する負例、`-Dmch.fixture.failStart=true` は専用サーバーの Mod 初期化を失敗させる負例。クライアント単独の統合サーバーには適用しない。
-
-2026-09-30 に Windows / Java 21.0.5 上で、ビルド、通常 JUnit 2 件、実サーバー GameTest 2 件、配布 JAR からのテスト補助コード除外を確認した。配布 JAR によるクライアント・マルチプレイの対応状況はリポジトリ全体の検証記録を参照。
+Fixture source keeps its [license](LICENSE); Gradle Wrapper notices remain in [gradle/LICENSE-Gradle.txt](gradle/LICENSE-Gradle.txt). Declared pins and build scripts do not prove a current environment has passed real-game tests.

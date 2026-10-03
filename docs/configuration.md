@@ -1,25 +1,19 @@
-# 設定契約
+# Configuration
 
-プロジェクトルートに `harness.config.json` を配置します。`mch --project <directory>` で別のルートを選べます。共有設定と成果物マニフェストは schemaVersion `1` を使用し、不明な項目・参照先・ローダー、Minecraft 1.20.1 未満の宣言はエラーになります。新しいターゲットを宣言できることと、そのターゲットの実機検証が完了していることは別です。[対応状況](support.md) を確認してください。
+Place `harness.config.json` at the project root, or select one with `mch --project <directory>`. Configuration and result schemas use version 1; unknown versions/fields/references and Minecraft versions below 1.20.1 are rejected. A valid declaration does not prove support: see [constraints](support.md).
 
-| ファイル | 内容 | バージョン管理 |
+| File | Purpose | Commit? |
 | --- | --- | --- |
-| `harness.config.json` | ビルドルート、ターゲット、Suite、実行構成 | 共有する |
-| `harness.lock.json` | 外部ツールの固定版、SHA-256、取得元 | 共有する |
-| `harness.local.json` | Java・固定ツールの絶対パス、実行期限、EULA 同意状態 | 除外する |
-| `.harness/` | Run、隔離セッション、証拠、実行ロック | 除外する |
+| `harness.config.json` | Builds, targets, suites, runtimes | Yes |
+| `harness.lock.json` | Fixed tool versions, HTTPS URLs, SHA-256 | Yes |
+| `harness.local.json` | Absolute Java/tool/backend paths, deadlines, EULA state | No |
+| `.harness/` | Isolated runs, evidence, caches, locks | No |
 
-local がない場合は `{ "schemaVersion": 1 }`、lock がない場合は `{ "schemaVersion": 1, "tools": {} }` を使用します。存在するファイルの JSON が壊れている場合はエラーです。local には必須 Suite やターゲットを上書きする機能がありません。
+Missing local configuration defaults to schemaVersion 1; a missing tool lock defaults to an empty tools map. Malformed existing files fail. Local settings cannot override required suites or targets. The complete field definitions are in [config](../schemas/harness.config.schema.json), [local](../schemas/harness.local.schema.json), [tool lock](../schemas/harness.lock.schema.json), [artifact](../schemas/artifact-manifest.schema.json), and [run](../schemas/run.schema.json) schemas.
 
-任意の `local.assetCache` は検証用に取得済みの Minecraft `assets/objects` ディレクトリの絶対パスです。バックエンドは内容を SHA-1 のファイル名と照合して各隔離セッションへコピーします。OS 固有の native library、ローダー準備済みマーカー、個人の設定やワールドは再利用しません。未指定なら公式資源を取得します。資源取得の限定的な再試行はログへ残し、ゲームの操作・アサーションは自動再試行しません。
+## Connect Gradle
 
-版ごとに資源を分ける場合は `local.assetCaches` に `{ "1.21.1": "/absolute/assets/objects", "1.20.1": "/other/assets/objects" }` を指定します。対象版の値を優先し、未指定の版は `assetCache` または公式取得を使います。隣接する `assets/indexes` があれば JSON の内容と SHA-1 名を検証してコピーします。上流ランチャーが JSON を再整形した index は公式ハッシュと一致しないため、共有用には公式の元データを使います。
-
-EULA が必要な Gradle / process Suite は `eulaRequired: true` を宣言します。Core は `local.eulaAccepted: true` を実行前に確認し、fixture の Gradle GameTest へも同意状態を渡します。
-
-## Gradle プロジェクトへの接続
-
-次の例は既存の Gradle Wrapper とタスクへ接続します。タスク名と結果ファイルは実際のプロジェクトに合わせて変更してください。
+Adapt the following example's tasks and result paths to the actual project. The unsupported client suite is intentional and blocks release until a real driver is connected.
 
 ```json
 {
@@ -67,23 +61,15 @@ EULA が必要な Gradle / process Suite は `eulaRequired: true` を宣言し�
 }
 ```
 
-`builds` には複数のビルドルートを指定できます。`target.build` はそのキーを参照します。`target.tasks` は任意の対応キーから Gradle タスクの配列へ対応させます。`suite.task` はその対応キーを参照し、Gradle のタスク名を直接指定する項目ではありません。Gradle オプションをタスク名として渡すことはできません。
+`target.build` selects a build root. `target.tasks` maps logical keys to arrays of actual Gradle tasks; `suite.task` selects a key, not a raw task or Gradle option. The local Wrapper runs with `--no-daemon --console=plain`. Operations sharing a build root are serialized. Confirm the recorded owner has ended before recovering a stale `.harness/build-adapter.lock`.
 
-Gradle Wrapper はルート内の `gradlew.bat` または `gradlew` を使用します。呼び出しには `--no-daemon --console=plain` を追加し、同じビルドルートの操作を直列化します。所有者不明の永続ロックを自動削除することはありません。クラッシュ後の `.harness/build-adapter.lock` は記録された所有者を確認して回収してください。
+Build runs the `build` mapping, then `inspect` if configured. A declared inspect task must generate a fresh manifest. Without an inspect task, an explicitly provided manifest may be used. Pin Minecraft, loader, mappings, and dependencies in Gradle. Manifest target/Minecraft/loader and an optional declared loaderVersion must match. `caseAliases` maps loader-specific test IDs to common IDs; duplicates and missing IDs still fail. `suiteBindings` selects target-specific runtime/pilot connections while preserving common case requirements.
 
-`GRADLE_USER_HOME` を明示した環境ではそのキャッシュを維持します。未設定の場合はプロジェクトの `.harness/cache/gradle/` を使用し、個人の既定 Gradle キャッシュを変更しません。
+Use [the Gradle exporter](../templates/gradle/README.md). Preserve an explicit `GRADLE_USER_HOME`; otherwise the harness uses `.harness/cache/gradle/`. Linux fixtures use `gradle/linux.lockfile`, Windows fixtures use `gradle.lockfile`, because native dependencies differ.
 
-ビルドは `build` 対応を実行し、その後 `inspect` 対応があれば実行します。inspect タスクを宣言した場合は、その実行でマニフェストを生成し直す必要があります。inspect タスクを省略した場合は明示配置したマニフェストを利用できます。
+## Artifact manifest
 
-Minecraft、ローダー、依存関係の版は Gradle 側で固定します。マニフェストの target・minecraft・loader が共有設定と一致しない場合は実行を止めます。対象版の API 調査には inspect の解決済み情報を利用してください。
-
-`target.loaderVersion` を宣言した場合は解決済みマニフェストとも照合します。実クライアント準備でも同じ版を明示し、バックエンドの既定カタログとの差を記録します。`target.caseAliases` はローダー固有の検出 ID を共通 ID へ変換します。変換後の重複や期待 ID の不足は通常の Suite 判定で失敗になります。
-
-複数ターゲットで同じ Suite 仕様を使う場合、`target.suiteBindings` へ `{ "multiplayer": { "runtime": "neoforge-server", "pilot": { "backend": "mc-pilot", "helper": "mct-helper-neoforge-1.21.1" } } }` のように接続先だけを指定できます。ケース ID・件数・Driver は共有 Suite を使用します。bind 先と固定ツールの参照は設定読み込み時に検証します。
-
-## 成果物マニフェスト
-
-`target.artifactManifest` はビルドルートからの相対パスです。ワイルドカードで JAR を選択する機能はありません。
+`artifactManifest` is relative to the build root. Specify exact files, never a first-match JAR glob.
 
 ```json
 {
@@ -101,17 +87,13 @@ Minecraft、ローダー、依存関係の版は Gradle 側で固定します。
 }
 ```
 
-`kind` は `distribution`、`runtime-dependency`、`sources`、`development`、配置 `side` は `client`、`server`、`both` です。ビルド接続では配布 JAR を少なくとも一つ要求し、sources・development・javadoc を示すファイル名を配布 JAR として扱いません。成果物は SHA-256 とサイズを記録したスナップショットへ保存します。同じ Adapter でビルドした後にファイルやマニフェストが変わった場合は、収集時に再ビルドを要求します。
+Kinds are `distribution`, `runtime-dependency`, `sources`, and `development`; sides are `client`, `server`, and `both`. At least one distribution is required. Sources/development/javadoc JARs cannot serve as distributions. Files are saved with size and SHA-256 under the Run; changed build output requires rebuilding before capture.
 
-ビルドルートと成果物のパスはルート内へ収まる相対パスを指定します。`..`、絶対パス、Windows ドライブ、予約名、外部へ解決されるシンボリックリンクは認めません。`build.root` の `.` は利用できます。`classpath`・`sources` は任意の調査用パス配列で、Gradle キャッシュなどの絶対パスも記録できます。その配列のファイルを暗黙にゲームへ配備することはありません。
+Build roots and deployed artifacts must stay within their declared roots: absolute paths, parent traversal, reserved Windows names, and escaping symlinks are rejected. Build root `.` is allowed. Optional inspection classpath/source metadata may describe external paths, but does not authorize deployment of those files.
 
-## Suite と結果
+## Suites and results
 
-`gradle` Driver は対応タスクを実行し、`results` の JSON または JUnit XML を読み込みます。結果ファイルは Gradle Suite ではビルドルート、process Suite ではその隔離セッションからの相対パスです。実行前に既存の結果ファイルを削除し、今回の処理による新しい結果を要求します。単一のファイルを指定する契約であり、結果ファイルの glob やディレクトリ集約はありません。
-
-Gradle Suite では古い結果の削除、タスク実行、Run 内への結果スナップショット保存まで同じビルドルートのロックを保持します。評価には保存したスナップショットを使うため、後続の別 Run が共有ビルド出力を更新しても今回の結果に混ざりません。保存時に JSON・XML の構造を維持したまま資格情報を除去します。
-
-JSON の最小形式は次のとおりです。
+Gradle suites read one result file relative to the build root; process suites read one relative to their isolated session. Globs and directory aggregation are unsupported. Old results are removed before execution; only fresh result snapshots are evaluated. A minimal JSON result is:
 
 ```json
 {
@@ -122,19 +104,13 @@ JSON の最小形式は次のとおりです。
 }
 ```
 
-ケースは `passed`、`failed`、`unsupported`、`skipped`、`infrastructure-error` を区別します。JUnit XML のケース ID は classname がある場合に `classname.name`、ない場合に name です。XML の tests 属性だけから検出数を推定しません。DOCTYPE を含む XML は拒否します。
+Statuses distinguish passed, failed, unsupported, skipped, and infrastructure-error. JUnit IDs use `classname.name` when a classname exists, otherwise name. DOCTYPE is rejected. Every expected ID must be detected and at least one test is required (`minTests` can raise that number). Missing/duplicate IDs, required skipped/unsupported tests, and zero detections fail. An earlier failed attempt followed by a pass remains unstable and cannot become a release pass.
 
-`minTests` は正の整数で、未指定時にも少なくとも1件を要求します。`expectedTests` に宣言した ID はすべて実際に検出する必要があります。重複 ID、必須 Suite 内の未対応・未実行ケース、検出0件は不合格です。プロセスの終了コード `0` だけでは合格になりません。
+`mch test --target <id> --suite <id>` runs a selected suite. Without a suite it runs required suites. `--all --profile release` runs all required suites and refuses a suite filter. Empty requirements do not establish release validation. Required capabilities must match the runtime. Gradle provides `gradle-task` and `test-results`.
 
-JSON のケースには `attempts` として各試行の status・message を記録できます。前の試行が失敗し、最後に成功したケースは試行履歴を残したまま不合格として扱い、安定した成功へ昇格させません。
+## External processes
 
-`unsupported` Driver は未検証・未実装の能力を明示するために使います。必須 Suite に含めたままで設定を読み込めますが、リリースゲートは成功しません。Suite の `requiredCapabilities` が Runtime の宣言と一致しない場合も未対応です。Gradle の既定能力は `gradle-task` と `test-results` です。
-
-単一 Suite の開発中の実行は `mch test --target <id> --suite <id>` を使用します。Suite 未指定ではターゲットの必須 Suite を実行します。`mch test --all --profile release` は全ターゲットの必須 Suite を実行し、`--suite` による絞り込みを拒否します。必須 Suite が空の場合もリリース検証を実施したことにはなりません。
-
-## プロセス実行構成
-
-`process` Driver は明示された外部コマンドを起動して、新規に生成された結果ファイルを評価します。ゲームを起動した事実や実クライアント操作の成功を汎用プロセスの終了から推測しません。能力の宣言は実機で検証した範囲に合わせてください。
+Add this fragment to shared configuration and supply the actual test script:
 
 ```json
 {
@@ -160,11 +136,9 @@ JSON のケースには `attempts` として各試行の status・message を記
 }
 ```
 
-この例は共有設定へ加える断片です。command は executable と引数配列を分けて指定します。`{projectRoot}`、`{sessionRoot}`、`{runRoot}`、`{target}` は実行時に置換します。`MCH_PROJECT_ROOT`、`MCH_SESSION_ROOT`、`MCH_TARGET` も子プロセスの環境へ渡します。各 Suite の作業ディレクトリは `.harness/runs/<run-id>/sessions/<target>/<suite>/` です。
+Use an executable plus an argument array. `{projectRoot}`, `{sessionRoot}`, `{runRoot}`, and `{target}` are substituted; child processes also receive `MCH_PROJECT_ROOT`, `MCH_SESSION_ROOT`, and `MCH_TARGET`. Session cwd is `.harness/runs/<run-id>/sessions/<target>/<suite>/`. A generic process exit is not proof of game readiness or gameplay.
 
-## 配布 JAR の専用サーバー起動確認
-
-`server-smoke` Driver は配布成果物を隔離サーバーへ配置し、出力の準備完了パターンを期限付きで待ち、`stop` を送って正常終了を検証します。`results` は不要で、`server.ready` と `server.stopped` のケースを生成します。client-only 成果物、sources・development JAR はサーバーへ配置しません。
+For a persistent dedicated server use `server-smoke`, which waits for readiness, sends `stop`, and verifies shutdown. It produces `server.ready` and `server.stopped` without a results file:
 
 ```json
 {
@@ -191,15 +165,11 @@ JSON のケースには `attempts` として各試行の status・message を記
 }
 ```
 
-この断片を共有設定へ加え、対象の requiredSuites に server-smoke を追加します。`{java:game}` は対象の Java game 参照から実行ファイルを解決します。`{tool:<key>}` は lock に固定したツールを参照し、local.tools に絶対パスがあればそのファイルを、なければ lock.url の HTTPS URL を使用します。使用前に SHA-256 を検証します。これらのプレースホルダーは現在 server-smoke の command で利用でき、単独の引数として指定します。`{sessionRoot}` と `{port}` も server-smoke の command で置換できます。
+Add the suite to requiredSuites. `{java:game}` selects the target's game Java, `{tool:<key>}` a SHA-256-verified locked tool. These server command placeholders occupy whole arguments. `{sessionRoot}`, `{port}`, and `{os}` (`win`/`unix`) are available. Forge/NeoForge setup runs in the isolated session before the command. Server sessions use loopback, unique ports, and an isolated test world; offline authentication is for local validation only.
 
-Forge・NeoForge のインストーラーは Runtime の `setup` に Java コマンドを指定します。隔離セッション内で setup が成功してから command を起動し、準備失敗・キャンセルのログも保存します。`{os}` は `win` / `unix` に展開し、固定ローダー版の引数ファイルを指定できます。クライアント操作 Suite も同じ専用サーバー Runtime を使用します。
+Tool locks require an exact version and 64-digit SHA-256; mutable `latest` is rejected. `local.tools` may point to matching bytes, otherwise the HTTPS lock URL is fetched. Downloads have a 512 MiB limit and never silently reuse invalid bytes. See [tools](tools.md).
 
-lock の tools エントリは `version` と64桁の `sha256` を必須とし、必要に応じて `url` を指定します。`latest` のような可変版は拒否します。版とハッシュは実際に取得した固定ファイルの値を記録してください。ダウンロードには排他ロックと512 MiB の上限を設け、不正なキャッシュを暗黙に再利用しません。
-
-local に追加する例は `{ "tools": { "fabric-server": "C:\\MinecraftTools\\fabric-server-fixed.jar" } }` です。local の tools キーには同名の lock エントリが必要です。サーバーセッションは loopback、固有ポート、seed `8675309`、flat world、creative を使用します。server.properties と配備した成果物の session.json を保存します。オンライン認証を要求しない隔離サーバー構成はローカル検証用です。
-
-## ローカル Java と期限
+## Java, display, consent, and timeouts
 
 ```json
 {
@@ -209,24 +179,20 @@ local に追加する例は `{ "tools": { "fabric-server": "C:\\MinecraftTools\\
     "jdk21": "C:\\Java\\jdk-21"
   },
   "timeouts": { "build": 600000, "start": 120000, "test": 120000, "stop": 5000 },
-  "eulaAccepted": true
+  "eulaAccepted": false
 }
 ```
 
-Java の値は Java home の絶対パスです。Linux では `/opt/jdk-21` のように指定します。target.java.gradle は build.java より優先し、Gradle の `JAVA_HOME` へ渡します。toolchain はコンパイル条件の宣言、game はゲーム起動用 Java の参照です。Gradle の toolchain 設定自体を書き換える機能はありません。
+Replace example homes with actual absolute paths, such as `/opt/jdk-21` on Linux. The target's Gradle Java overrides the build role; toolchain declares compilation requirements, while game Java controls launch. Local homes are passed to Gradle toolchain discovery without changing the project's toolchain settings.
 
-Java のローカル参照先が未配置でも共有設定は読み込めます。`doctor` と実際の Adapter 実行で環境不足を報告します。EULA に同意した環境をテストサーバーへ再利用する場合にのみ eulaAccepted を true にします。ローカルの個人用 `.minecraft` を使わず、隔離セッションを使用します。
+Set `eulaAccepted: true` only after the user has accepted Minecraft's EULA. Suites declaring `eulaRequired` and game runtimes require it. Direct fixture Gradle tasks need an already-accepted isolated `eula.txt` or `MCH_EULA_ACCEPTED=true`. Keep personal `.minecraft` data separate. Linux clients require X11 `DISPLAY`; a Wayland variable alone is insufficient.
 
-Gradle の Java toolchain 探索には local.java の home 一覧を渡します。Gradle 用 Java とゲーム用 Java を別々に選択でき、共有ビルド設定のコンパイル条件は維持します。fixture の GameTest は CLI が渡す `MCH_EULA_ACCEPTED=true` のときだけ、同意を隔離した実行ディレクトリへ再利用します。Gradle を直接実行する場合は同意済みの `eula.txt` または同じ環境変数を用意してください。
+Timeouts are positive milliseconds. Build defaults to 600 seconds, Gradle/process tests to 120 seconds, and process stop grace to 5 seconds. Server smoke defaults to 120-second readiness, a 300-second session, and 10-second shutdown grace. Missing Java roles are reported by doctor/adapters rather than invented.
 
-期限はミリ秒の正の整数です。既定のビルド期限は600秒、Gradle Suite と process Suite のテスト期限は120秒、process Suite の停止猶予は5秒です。ビルド・inspect には build、Suite のタスク実行には test の期限を使用します。server-smoke の既定の準備完了期限は120秒、セッション全体は300秒、停止猶予は10秒です。process Driver は処理が終了して結果を生成する契約であり、readyPattern による準備完了待機や永続サーバーの正常停止には server-smoke を使用します。
+Optional `assetCache` is an absolute `assets/objects` directory. `assetCaches` maps Minecraft versions to such directories and takes precedence. Objects and adjacent content-addressed indexes are verified against SHA-1 names before reuse; native libraries, prepared markers, personal settings, and worlds are never reused. Rewritten index JSON must be replaced with separately obtained official bytes, not accepted under an invalid hash.
 
-## 証拠と再現
+## Evidence
 
-Run の `report.json` と `junit.xml` は `.harness/runs/<run-id>/` に保存します。成果物・Suite ログの参照は Run ディレクトリからの相対パスです。終了コードは成功 `0`、不合格 `1`、設定・環境不足 `2` です。JSON 出力の標準出力には一つの JSON オブジェクトだけを出し、進捗は標準エラー、子プロセス出力はログファイルへ保存します。
+Reports and JUnit live under `.harness/runs/<run-id>/`; evidence paths are relative to that Run. Exit codes are 0/1/2 for success/validation failure/environment error. JSON mode writes one stdout object and progress to stderr.
 
-設定・lock・ターゲット・成果物ハッシュ・解決済み情報・ケース結果・Git リビジョンと差分ハッシュを記録します。資格情報を示すキーや文字列は JSON と JUnit の保存前に除去します。local の Java パスや同意状態を共有設定スナップショットへ混ぜません。
-
-追跡済みソースの未コミット差分はハッシュで識別し、資格情報を除去した `source.patch` を保存します。未追跡ファイルはパスと内容ハッシュの一覧で識別し、内容自体は保存しません。再実行に必要なソースやローカル環境が不足する場合は `reproduction.limitations` に示します。
-
-スキーマは `schemas/harness.config.schema.json`、`schemas/harness.local.schema.json`、`schemas/harness.lock.schema.json`、`schemas/artifact-manifest.schema.json`、`schemas/run.schema.json` に同梱しています。CLI は設定に JSON Schema 検証と参照・パスの意味検証を適用します。
+Reports record config/tool/artifact hashes, resolved metadata, case results, Git revision, and source identity. Tracked dirty changes have a redacted patch and hash; untracked files have path/hash identities but no saved contents. Credentials are redacted and local Java/EULA state is not copied into shared configuration. Replay cannot restore missing dirty sources or local prerequisites: inspect `reproduction.limitations`.

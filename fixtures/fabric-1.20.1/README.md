@@ -1,11 +1,17 @@
-# Fabric 1.20.1 fixture
+# fabric-1.20.1 fixture
 
-This independent build root implements the same persisted counter, player-use GUI, block entity and screen property synchronization, and read-only server/client JSON commands as the Fabric 1.21.1 fixture. Dedicated-server regression flags `mch.fixture.breakSync` and `mch.fixture.failStart` remain opt-in and default false.
+This independent Gradle build uses Fabric Loader 0.16.14, Loom 1.8.13, Gradle 8.10, Java 17. It shares the pure Java [counter logic](../common/README.md) and follows the [counter fixture behavior](../example-mod/README.md). Loader registration, networking, resources, and GameTests remain local to this root. See `gradle.properties`, `build.gradle`, and the Wrapper properties for exact build pins and hashes.
 
-The build pins Minecraft 1.20.1, Loader 0.16.14, Fabric API 0.92.7+1.20.1, Yarn 1.20.1+build.10, Loom 1.8.13, Gradle 8.10, and JUnit 5.11.4. Gradle runs on Java 21; the toolchain, unit test and game JVMs use Java 17, with `--release 17` output. Configure role keys `java21` and `java17` in ignored local settings and provide the local JDK discovery path to Gradle without putting absolute Java paths in shared files.
+From this directory, use `gradlew.bat` on Windows or `sh gradlew` on Linux:
 
-Run `gradlew.bat build harnessExport harnessServerGameTest` on Windows or `./gradlew build harnessExport harnessServerGameTest` on Linux. If the caller has accepted the EULA, `MCH_EULA_ACCEPTED=true` reuses that acceptance only in the isolated `build/gametest/eula.txt`; otherwise normal server EULA handling applies. Unit and GameTest XML contain two expected cases each. Target aliases map loader-specific GameTest identifiers to `fixture.counter_initial` and `fixture.counter_persistence`.
+```console
+sh gradlew --no-daemon --console=plain build harnessExport harnessUnit harnessServerGameTest
+```
 
-The manifest `build/harness/fabric-1.20.1.json` explicitly identifies the remapped distribution and original Fabric API runtime JAR, both sides, resolved loader/mappings, and this root's classpath/source paths. The distribution excludes the separate GameTest source set. The required runtime suites stay unsupported in shared configuration until independently verified runtime settings are connected.
+Set the matching JAVA_HOME and an explicit GRADLE_USER_HOME first. GameTests require an already accepted EULA in the isolated game directory, or `MCH_EULA_ACCEPTED=true` when the user has already accepted it. Harness users instead configure Java roles and consent in ignored `harness.local.json` at their selected project root.
 
-Version references: [Fabric API artifact](https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/0.92.7+1.20.1/), [Yarn version metadata](https://meta.fabricmc.net/v2/versions/yarn/1.20.1), [Loom metadata](https://maven.fabricmc.net/net/fabricmc/fabric-loom/maven-metadata.xml). Gradle wrapper files and their Apache license are copied from the verified canonical v8.10.0 wrapper used by the 1.21.1 fixture; the official distribution SHA256 is enforced in wrapper properties. Fixture source is MIT licensed.
+`harnessUnit` and `harnessServerGameTest` each require two cases. The exporter selects an explicit production JAR (after reobfuscation on Forge), excludes test-only source sets, and includes a source snapshot for inspection. Target caseAliases map actual GameTest IDs to the shared contract. Use the root release profile for server/client/multiplayer tests, which require the pinned backend and helpers.
+
+The server `/fixture state x y z` and client `/fixture_client state x y z` observe state without changing it. Forge's player relay requests an independent client observation rather than reporting server state as a client value. Intentional breakSync/failStart controls are separate negative tests and do not belong in normal release configuration.
+
+Fixture source keeps its [license](LICENSE); Gradle Wrapper notices remain in [gradle/LICENSE-Gradle.txt](gradle/LICENSE-Gradle.txt). Declared pins and build scripts do not prove a current environment has passed real-game tests.
