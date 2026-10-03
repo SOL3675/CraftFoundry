@@ -18,6 +18,9 @@ if (args.length === 1 && args[0] === '--pin') {
     if (args.length) {
       const source = resolve(args[1]);
       if (run(['rev-parse', 'HEAD'], source) !== pin) throw new Error('Authenticated Atlas source differs from the gitlink');
+      // Register the canonical URL first: a command-local URL alone makes Git
+      // skip init, leaving the submodule inactive and sync unable to restore origin.
+      run(['submodule', 'init', '--', 'projects/craft-atlas']);
       // One command-local URL override: no token transfer or persistent credential configuration.
       run(['-c', 'protocol.file.allow=always', '-c', `submodule.projects/craft-atlas.url=${source}`, 'submodule', 'update', '--init', '--', 'projects/craft-atlas']);
       run(['submodule', 'sync', '--', 'projects/craft-atlas']);

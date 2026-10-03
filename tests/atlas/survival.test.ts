@@ -199,3 +199,27 @@ test('actual Foundry process suite evaluates Atlas cases and saves an auditable 
   const failed = await run(); assert.equal(failed.status, 'failed');
   assert.equal(failed.targets[0]!.suites[0]!.cases.find(c => c.id === 'survival.no_source')!.status, 'failed');
 });
+
+test('authenticated source initializes an actual fresh gitlink and restores canonical origin without install recursion', t => {
+  const dir = mkdtempSync(join(tmpdir(), 'Foundry submodule 日本語 ')); t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const checkout = join(dir, 'Foundry');
+  const git = (cwd: string, ...args: string[]) => {
+    const r = spawnSync('git', args, { cwd, encoding: 'utf8' }); assert.equal(r.status, 0, r.stderr); return r.stdout.trim();
+  };
+  git(dir, 'clone', '--no-hardlinks', '--no-recurse-submodules', root, checkout);
+  // Exercise this working tree's script as well as the committed exact gitlink.
+  const script = join(checkout, '.github/scripts/prepare-atlas.mjs');
+  writeFileSync(script, readFileSync(resolve(root, '.github/scripts/prepare-atlas.mjs')));
+  const source = resolve(root, 'projects/craft-atlas');
+  const sourcePin = git(source, 'rev-parse', 'HEAD');
+  const run = spawnSync(process.execPath, [script, '--source', source], { cwd: checkout, encoding: 'utf8' });
+  assert.equal(run.status, 0, run.stderr);
+  assert.ok(git(checkout, 'submodule', 'status').startsWith(sourcePin), 'submodule must be registered and at its gitlink');
+  const module = join(checkout, 'projects/craft-atlas');
+  assert.equal(git(module, 'remote', 'get-url', 'origin'), 'https://github.com/SOL3675/CraftAtlas.git');
+  assert.equal(git(checkout, 'config', '--get', 'submodule.projects/craft-atlas.url'), 'https://github.com/SOL3675/CraftAtlas.git');
+  assert.equal(git(module, 'rev-parse', 'HEAD'), sourcePin);
+  assert.equal(git(module, 'status', '--porcelain'), '');
+  assert.throws(() => readFileSync(join(module, 'node_modules/craft-foundry/package.json')), /ENOENT/);
+  assert.throws(() => readFileSync(join(module, '.harness/vendor/craft-foundry.tgz')), /ENOENT/);
+});
