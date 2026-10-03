@@ -1,0 +1,3 @@
+[submodule "projects/craft-atlas"]
+	path = projects/craft-atlas
+	url = https://github.com/SOL3675/CraftAtlas.git
