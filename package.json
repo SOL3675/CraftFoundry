@@ -1,0 +1,74 @@
+{
+  "name": "craft-foundry",
+  "version": "0.1.3",
+  "description": "CraftFoundry — reproducible Minecraft mod build and validation harness",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "mch": "dist/cli/main.js"
+  },
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "files": [
+    "dist",
+    "schemas",
+    "skills",
+    "templates",
+    "docs",
+    "fixtures",
+    "harness.config.json",
+    "harness.lock.json",
+    "!fixtures/**/.harness/**",
+    "!fixtures/**/build/**",
+    "!fixtures/**/harness.local.json",
+    "!fixtures/**/.gradle/**",
+    "README.md",
+    "README.ja.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "node scripts/clean-dist.mjs && tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test tests/*.test.ts",
+    "check": "npm run typecheck && npm test",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "ajv": "8.20.0",
+    "sax": "1.6.1"
+  },
+  "devDependencies": {
+    "@types/node": "24.3.0",
+    "@types/sax": "1.2.7",
+    "typescript": "5.9.2"
+  },
+  "exports": {
+    "./package.json": "./package.json",
+    "./core/config": {
+      "types": "./dist/core/config.d.ts",
+      "default": "./dist/core/config.js"
+    },
+    "./core/cache": {
+      "types": "./dist/core/cache.d.ts",
+      "default": "./dist/core/cache.js"
+    },
+    "./core/tools": {
+      "types": "./dist/core/tools.d.ts",
+      "default": "./dist/core/tools.js"
+    },
+    "./core/types": {
+      "types": "./dist/core/types.d.ts",
+      "default": "./dist/core/types.js"
+    },
+    "./adapters/runtime/server": {
+      "types": "./dist/adapters/runtime/server.d.ts",
+      "default": "./dist/adapters/runtime/server.js"
+    },
+    "./adapters/runtime/mc-pilot": {
+      "types": "./dist/adapters/runtime/mc-pilot.d.ts",
+      "default": "./dist/adapters/runtime/mc-pilot.js"
+    }
+  }
+}

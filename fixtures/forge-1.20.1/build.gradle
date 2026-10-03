@@ -1,0 +1,74 @@
+plugins { id 'java'; id 'net.minecraftforge.gradle' version '6.0.36' }
+version = project.mod_version
+group = 'dev.mch.fixture'
+base { archivesName = 'harness-fixture-forge' }
+repositories { mavenCentral() }
+dependencyLocking {
+    lockAllConfigurations()
+    // Native runtime modules differ between Windows and Linux; strict locks must match the OS.
+    lockFile = file(System.getProperty('os.name') == 'Linux' ? 'gradle/linux.lockfile' : 'gradle.lockfile')
+}
+java { toolchain.languageVersion = JavaLanguageVersion.of(17); withSourcesJar() }
+tasks.withType(JavaCompile).configureEach { options.release = 17; options.encoding = 'UTF-8' }
+tasks.withType(AbstractArchiveTask).configureEach { preserveFileTimestamps = false; reproducibleFileOrder = true }
+tasks.withType(Jar).configureEach { from('LICENSE') { into 'META-INF' } }
+sourceSets {
+    gametest {
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+    }
+}
+apply from: '../common/shared-sources.gradle'
+minecraft {
+    mappings channel: 'official', version: '1.20.1'
+    runs {
+        configureEach {
+            workingDirectory project.file('build/run')
+            property 'forge.logging.console.level', 'info'
+            mods { fixture { source sourceSets.main } }
+        }
+        client { }
+        server { args '--nogui' }
+        gameTestServer {
+            workingDirectory project.file('build/gametest')
+            property 'forge.enabledGameTestNamespaces', 'fixture'
+            property 'mch.fixture.reportFile', file('build/test-results/gametest/results.xml').absolutePath
+            mods { fixture_tests { source sourceSets.gametest } }
+        }
+    }
+}
+dependencies {
+    minecraft "net.minecraftforge:forge:${project.minecraft_version}-${project.forge_version}"
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.4'
+}
+processResources { inputs.property 'version', project.version; filesMatching('META-INF/mods.toml') { expand version: project.version } }
+test { useJUnitPlatform(); outputs.upToDateWhen { false } }
+tasks.register('harnessUnit') { dependsOn test }
+tasks.named('jar') { finalizedBy 'reobfJar' }
+tasks.matching { it.name == 'runGameTestServer' }.configureEach {
+    doFirst {
+        file('build/test-results/gametest').mkdirs()
+        delete file('build/test-results/gametest/results.xml')
+        if (System.getenv('MCH_EULA_ACCEPTED') == 'true') {
+            file('build/gametest').mkdirs()
+            file('build/gametest/eula.txt').setText('eula=true\n', 'UTF-8')
+        }
+    }
+}
+tasks.register('harnessServerGameTest') { dependsOn 'runGameTestServer' }
+ext.harnessExportSpec = [
+    target: 'forge-1.20.1', loader: 'forge', java: 17, declaredMinecraft: project.minecraft_version,
+    artifactTasks: ['jar', 'reobfJar', 'copySharedInspectionSources'],
+    resolved: {
+        def dependency = configurations.minecraft.incoming.resolutionResult.allComponents.find {
+            it.id instanceof org.gradle.api.artifacts.component.ModuleComponentIdentifier && it.id.group == 'net.minecraftforge' && it.id.module == 'forge'
+        }
+        if (dependency == null) throw new GradleException('Cannot resolve net.minecraftforge:forge')
+        def versions = dependency.id.version.replaceFirst(/_mapped_.*/, '').split('-', 2)
+        [minecraft: versions[0], loaderVersion: versions[1], mappings: 'mojang:1.20.1']
+    },
+    artifacts: { [[file: tasks.jar.archiveFile.get().asFile, kind: 'distribution', side: 'both']] },
+    classpath: { sourceSets.main.compileClasspath.files }, sources: ['src/main/java', 'build/harness/shared-sources/main/java']
+]
+apply from: '../../templates/gradle/harness-export.gradle'

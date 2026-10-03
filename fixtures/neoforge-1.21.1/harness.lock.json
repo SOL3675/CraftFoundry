@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "tools": {
+    "mc-pilot": {
+      "version": "0.15.0",
+      "sha256": "369ea25fb7a563c97e8b9c1daed01411193579b78a838f5e774900cef8775629",
+      "url": "https://registry.npmjs.org/@kzheart_/mc-pilot/-/mc-pilot-0.15.0.tgz"
+    },
+    "neoforge-server-1.21.1": {
+      "version": "21.1.252",
+      "sha256": "d0345e2a104ce4633065f572310ba6e0dd428bb6a73364cf0c2443ed9f8950ad",
+      "url": "https://maven.neoforged.net/releases/net/neoforged/neoforge/21.1.252/neoforge-21.1.252-installer.jar"
+    },
+    "mct-helper-neoforge-1.21.1": {
+      "version": "0.14.0-artifact-mod.0.9.1",
+      "sha256": "d89bd309af94c0afe6b37dc03f8e9a689b4dabf95ff53f3f04fc7df9a7587788",
+      "url": "https://github.com/kzheart/mc-pilot/releases/download/v0.14.0/mct-client-mod-neoforge-1.21.1.jar"
+    }
+  }
+}

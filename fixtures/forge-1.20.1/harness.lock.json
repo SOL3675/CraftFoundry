@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "tools": {
+    "mc-pilot": {
+      "version": "0.15.0",
+      "sha256": "369ea25fb7a563c97e8b9c1daed01411193579b78a838f5e774900cef8775629",
+      "url": "https://registry.npmjs.org/@kzheart_/mc-pilot/-/mc-pilot-0.15.0.tgz"
+    },
+    "forge-server-1.20.1": {
+      "version": "1.20.1-47.3.0",
+      "sha256": "6018abce95cc058768e365865fd7cf3bd31b5c553231daf885dc385fcd6d875a",
+      "url": "https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.1-47.3.0/forge-1.20.1-47.3.0-installer.jar"
+    },
+    "mct-helper-forge-1.20.1": {
+      "version": "0.14.0-artifact-mod.0.9.1",
+      "sha256": "b93ce00ef658a2ac96ae763cbf873772ae912f0ce728a9740b70e3c85ab2bcd9",
+      "url": "https://github.com/kzheart/mc-pilot/releases/download/v0.14.0/mct-client-mod-forge-1.20.1.jar"
+    }
+  }
+}

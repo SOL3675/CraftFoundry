@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mc-dev-harness.invalid/schemas/run.schema.json",
+  "title": "Minecraft harness run report",
+  "type": "object", "additionalProperties": false,
+  "required": ["schemaVersion", "id", "command", "startedAt", "status", "harnessVersion", "platform", "source", "configuration", "lock", "targets", "reproduction"],
+  "properties": {
+    "schemaVersion": { "const": 1 }, "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$", "maxLength": 128 }, "command": { "type": "string", "minLength": 1 },
+    "startedAt": { "$ref": "#/definitions/timestamp" }, "finishedAt": { "$ref": "#/definitions/timestamp" }, "status": { "$ref": "#/definitions/status" },
+    "harnessVersion": { "type": "string", "minLength": 1 },
+    "platform": {
+      "type": "object", "additionalProperties": false, "required": ["os", "arch", "node"],
+      "properties": { "os": { "type": "string", "minLength": 1 }, "arch": { "type": "string", "minLength": 1 }, "node": { "type": "string", "minLength": 1 } }
+    },
+    "source": {
+      "type": "object", "additionalProperties": false, "required": ["limitations"],
+      "properties": {
+        "revision": { "type": "string", "minLength": 1 }, "diffSha256": { "$ref": "#/definitions/sha256" }, "dirty": { "type": "boolean" },
+        "diffPath": { "$ref": "#/definitions/evidencePath" }, "untrackedManifest": { "$ref": "#/definitions/evidencePath" }, "untrackedSha256": { "$ref": "#/definitions/sha256" },
+        "limitations": { "$ref": "#/definitions/strings" }
+      }
+    },
+    "configuration": {}, "lock": {},
+    "targets": {
+      "type": "array", "items": {
+        "type": "object", "additionalProperties": false, "required": ["id", "minecraft", "loader", "status", "artifacts", "suites"],
+        "properties": {
+          "id": { "$ref": "#/definitions/id" }, "minecraft": { "type": "string", "minLength": 1 },
+          "loader": { "enum": ["fabric", "forge", "neoforge"] }, "status": { "$ref": "#/definitions/status" },
+          "artifacts": { "type": "array", "items": { "$ref": "#/definitions/artifact" } },
+          "suites": { "type": "array", "items": { "$ref": "#/definitions/suite" } }, "error": { "type": "string" }, "resolved": {}
+        }
+      }
+    },
+    "reproduction": {
+      "type": "object", "additionalProperties": false, "required": ["command", "limitations"],
+      "properties": { "command": { "type": "string", "minLength": 1 }, "limitations": { "$ref": "#/definitions/strings" } }
+    },
+    "error": { "type": "string" }
+  },
+  "definitions": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$", "maxLength": 128 },
+    "status": { "enum": ["passed", "failed", "unsupported", "skipped", "infrastructure-error"] },
+    "timestamp": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$" },
+    "sha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+    "strings": { "type": "array", "items": { "type": "string" } },
+    "evidencePath": { "type": "string", "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\\\u0000]+$" },
+    "artifact": {
+      "type": "object", "additionalProperties": false, "required": ["path", "sha256", "size", "kind", "side", "originalPath"],
+      "properties": {
+        "path": { "$ref": "#/definitions/evidencePath" }, "sha256": { "$ref": "#/definitions/sha256" }, "size": { "type": "integer", "minimum": 0 },
+        "kind": { "enum": ["distribution", "runtime-dependency", "sources", "development"] }, "side": { "enum": ["client", "server", "both"] },
+        "originalPath": { "type": "string", "minLength": 1 }
+      }
+    },
+    "case": {
+      "type": "object", "additionalProperties": false, "required": ["id", "status"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 }, "status": { "$ref": "#/definitions/status" }, "message": { "type": "string" },
+        "durationMs": { "type": "number", "minimum": 0 },
+        "attempts": {
+          "type": "array", "items": {
+            "type": "object", "additionalProperties": false, "required": ["status"],
+            "properties": { "status": { "$ref": "#/definitions/status" }, "message": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "suite": {
+      "type": "object", "additionalProperties": false, "required": ["id", "required", "status", "detected", "cases"],
+      "properties": {
+        "id": { "$ref": "#/definitions/id" }, "required": { "type": "boolean" }, "status": { "$ref": "#/definitions/status" }, "detected": { "type": "integer", "minimum": 0 },
+        "cases": { "type": "array", "items": { "$ref": "#/definitions/case" } }, "error": { "type": "string" },
+        "logs": { "type": "array", "items": { "$ref": "#/definitions/evidencePath" } },
+        "evidence": { "type": "array", "items": { "$ref": "#/definitions/evidencePath" } }, "runtimeMetadata": { "type": "object" }
+      }
+    }
+  }
+}

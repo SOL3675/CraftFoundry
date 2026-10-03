@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Pinned external tools",
+  "type": "object", "additionalProperties": false, "required": ["schemaVersion", "tools"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "tools": {
+      "type": "object", "propertyNames": { "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
+      "additionalProperties": {
+        "type": "object", "additionalProperties": false, "required": ["version", "sha256"],
+        "properties": {
+          "version": { "type": "string", "minLength": 1, "not": { "enum": ["latest", "*", "main", "master", "HEAD"] } },
+          "sha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+          "url": { "type": "string", "pattern": "^https://[^\\s]+$" }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,20 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="MIT"
+[[mods]]
+modId="fixture"
+version="${version}"
+displayName="Harness Fixture"
+description="Counter persistence, GUI and synchronization fixture."
+[[dependencies.fixture]]
+modId="forge"
+mandatory=true
+versionRange="[47.3.0,48)"
+ordering="NONE"
+side="BOTH"
+[[dependencies.fixture]]
+modId="minecraft"
+mandatory=true
+versionRange="[1.20.1]"
+ordering="NONE"
+side="BOTH"

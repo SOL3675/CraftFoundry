@@ -1,0 +1,55 @@
+import groovy.json.JsonOutput
+
+// Apply after setting ext.harnessExportSpec. Loader-specific resolution remains in the build.
+def spec = project.ext.harnessExportSpec
+if (!(spec instanceof Map)) throw new GradleException('harnessExportSpec must be a map')
+tasks.register('harnessExport') {
+    dependsOn spec.artifactTasks
+    doLast {
+        def identifier = { value -> value instanceof String && value ==~ /[A-Za-z0-9][A-Za-z0-9._-]*/ }
+        if (!identifier(spec.target)) throw new GradleException('Invalid harness target identifier')
+        if (!(spec.loader in ['fabric', 'forge', 'neoforge'])) throw new GradleException('Invalid harness loader')
+        if (!(spec.java instanceof Integer) || spec.java < 17) throw new GradleException('Invalid harness Java toolchain')
+        def resolved = spec.resolved.call()
+        ['minecraft', 'loaderVersion', 'mappings'].each { key ->
+            if (!(resolved[key] instanceof String) || resolved[key].trim().isEmpty()) throw new GradleException("Missing resolved ${key}")
+        }
+        if (resolved.minecraft != spec.declaredMinecraft) throw new GradleException('Declared Minecraft version does not match resolved dependencies')
+        def root = projectDir.canonicalFile.toPath()
+        def relative = { File input ->
+            def path = input.canonicalFile.toPath()
+            if (!path.startsWith(root) || path == root) throw new GradleException("Harness path escapes build root: ${input}")
+            root.relativize(path).toString().replace('\\', '/')
+        }
+        def artifacts = spec.artifacts.call().collect { artifact ->
+            File input = project.file(artifact.file)
+            if (!input.isFile()) throw new GradleException("Harness artifact is not a regular file: ${input}")
+            if (!(artifact.kind in ['distribution', 'runtime-dependency', 'sources', 'development'])) throw new GradleException('Invalid harness artifact kind')
+            if (!(artifact.side in ['client', 'server', 'both'])) throw new GradleException('Invalid harness artifact side')
+            if (artifact.kind == 'distribution' && input.name ==~ /(?i).*(?:-sources|-dev|-development)\.jar/) throw new GradleException('Sources or development JAR cannot be a distribution artifact')
+            [path: relative(input), kind: artifact.kind, side: artifact.side]
+        }
+        if (!artifacts.any { it.kind == 'distribution' }) throw new GradleException('Missing explicit distribution artifact')
+        if (artifacts.collect { it.path }.unique().size() != artifacts.size()) throw new GradleException('Duplicate harness artifact path')
+        def classpath = spec.classpath.call().collect { input ->
+            File file = project.file(input)
+            if (!file.exists()) throw new GradleException("Missing inspection classpath entry: ${file}")
+            file.canonicalFile.toPath().startsWith(root) ? relative(file) : file.canonicalPath
+        }.unique().sort()
+        def sources = spec.sources.collect { input ->
+            File file = project.file(input)
+            if (!file.isDirectory()) throw new GradleException("Missing source directory: ${file}")
+            relative(file)
+        }
+        def manifest = [schemaVersion: 1, target: spec.target, minecraft: resolved.minecraft,
+            loader: spec.loader, loaderVersion: resolved.loaderVersion, mappings: resolved.mappings,
+            buildEnvironment: [gradleVersion: gradle.gradleVersion,
+                gradleJavaVersion: System.getProperty('java.version'),
+                compilerJavaVersion: tasks.named('compileJava').get().javaCompiler.get().metadata.javaRuntimeVersion],
+            java: [toolchain: spec.java], artifacts: artifacts, classpath: classpath, sources: sources]
+        def output = layout.buildDirectory.file("harness/${spec.target}.json").get().asFile
+        relative(output)
+        output.parentFile.mkdirs()
+        output.setText(JsonOutput.prettyPrint(JsonOutput.toJson(manifest)) + '\n', 'UTF-8')
+    }
+}

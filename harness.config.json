@@ -1,0 +1,466 @@
+{
+  "schemaVersion": 1,
+  "projectId": "harness-fixtures",
+  "builds": {
+    "fabric-1.21.1": {
+      "root": "fixtures/example-mod",
+      "adapter": "gradle",
+      "java": "java21"
+    },
+    "neoforge-1.21.1": {
+      "root": "fixtures/neoforge-1.21.1",
+      "adapter": "gradle",
+      "java": "java21"
+    },
+    "fabric-1.20.1": {
+      "root": "fixtures/fabric-1.20.1",
+      "adapter": "gradle",
+      "java": "java21"
+    },
+    "forge-1.20.1": {
+      "root": "fixtures/forge-1.20.1",
+      "adapter": "gradle",
+      "java": "java17"
+    }
+  },
+  "targets": {
+    "fabric-1.21.1": {
+      "minecraft": "1.21.1",
+      "loader": "fabric",
+      "build": "fabric-1.21.1",
+      "java": {
+        "gradle": "java21",
+        "toolchain": 21,
+        "game": "java21"
+      },
+      "tasks": {
+        "inspect": [
+          "harnessExport"
+        ],
+        "build": [
+          "build"
+        ],
+        "unit": [
+          "harnessUnit"
+        ],
+        "serverGameTest": [
+          "harnessServerGameTest"
+        ]
+      },
+      "artifactManifest": "build/harness/fabric-1.21.1.json",
+      "caseAliases": {
+        "fabric-gametest-api-v1:empty.fixturegametests.counter_initial": "fixture.counter_initial",
+        "fabric-gametest-api-v1:empty.fixturegametests.counter_persistence": "fixture.counter_persistence"
+      },
+      "requiredSuites": [
+        "unit",
+        "server-gametest",
+        "server-smoke",
+        "client-smoke",
+        "multiplayer",
+        "multi-client"
+      ],
+      "loaderVersion": "0.16.14",
+      "suiteBindings": {
+        "server-smoke": {
+          "runtime": "fabric-1.21.1-server"
+        },
+        "client-smoke": {
+          "runtime": "fabric-1.21.1-server",
+          "pilot": {
+            "backend": "mc-pilot",
+            "helper": "mct-helper-fabric-1.21.1"
+          }
+        },
+        "multiplayer": {
+          "runtime": "fabric-1.21.1-server",
+          "pilot": {
+            "backend": "mc-pilot",
+            "helper": "mct-helper-fabric-1.21.1"
+          }
+        },
+        "multi-client": {
+          "runtime": "fabric-1.21.1-server",
+          "pilot": {
+            "backend": "mc-pilot",
+            "helper": "mct-helper-fabric-1.21.1"
+          }
+        }
+      }
+    },
+    "neoforge-1.21.1": {
+      "minecraft": "1.21.1",
+      "loader": "neoforge",
+      "build": "neoforge-1.21.1",
+      "java": {
+        "gradle": "java21",
+        "toolchain": 21,
+        "game": "java21"
+      },
+      "tasks": {
+        "inspect": [
+          "harnessExport"
+        ],
+        "build": [
+          "build"
+        ],
+        "unit": [
+          "harnessUnit"
+        ],
+        "serverGameTest": [
+          "harnessServerGameTest"
+        ]
+      },
+      "artifactManifest": "build/harness/neoforge-1.21.1.json",
+      "requiredSuites": [
+        "unit",
+        "server-gametest",
+        "server-smoke",
+        "client-smoke",
+        "multiplayer",
+        "multi-client"
+      ],
+      "caseAliases": {
+        "fixture:empty.counter_initial": "fixture.counter_initial",
+        "fixture:empty.counter_persistence": "fixture.counter_persistence"
+      },
+      "loaderVersion": "21.1.252",
+      "suiteBindings": {
+        "server-smoke": {
+          "runtime": "neoforge-1.21.1-server"
+        },
+        "client-smoke": {
+          "runtime": "neoforge-1.21.1-server",
+          "pilot": {
+            "backend": "mc-pilot",
+            "helper": "mct-helper-neoforge-1.21.1"
+          }
+        },
+        "multiplayer": {
+          "runtime": "neoforge-1.21.1-server",
+          "pilot": {
+            "backend": "mc-pilot",
+            "helper": "mct-helper-neoforge-1.21.1"
+          }
+        },
+        "multi-client": {
+          "runtime": "neoforge-1.21.1-server",
+          "pilot": {
+            "backend": "mc-pilot",
+            "helper": "mct-helper-neoforge-1.21.1"
+          }
+        }
+      }
+    },
+    "fabric-1.20.1": {
+      "minecraft": "1.20.1",
+      "loader": "fabric",
+      "build": "fabric-1.20.1",
+      "java": {
+        "gradle": "java21",
+        "toolchain": 17,
+        "game": "java17"
+      },
+      "tasks": {
+        "inspect": [
+          "harnessExport"
+        ],
+        "build": [
+          "build"
+        ],
+        "unit": [
+          "harnessUnit"
+        ],
+        "serverGameTest": [
+          "harnessServerGameTest"
+        ]
+      },
+      "artifactManifest": "build/harness/fabric-1.20.1.json",
+      "requiredSuites": [
+        "unit",
+        "server-gametest",
+        "server-smoke",
+        "client-smoke",
+        "multiplayer",
+        "multi-client"
+      ],
+      "caseAliases": {
+        "fabric-gametest-api-v1:empty.fixturegametests.counter_initial": "fixture.counter_initial",
+        "fabric-gametest-api-v1:empty.fixturegametests.counter_persistence": "fixture.counter_persistence"
+      },
+      "loaderVersion": "0.16.14",
+      "suiteBindings": {
+        "server-smoke": {
+          "runtime": "fabric-1.20.1-server"
+        },
+        "client-smoke": {
+          "runtime": "fabric-1.20.1-server",
+          "pilot": {
+            "backend": "mc-pilot",
+            "helper": "mct-helper-fabric-1.20.1"
+          }
+        },
+        "multiplayer": {
+          "runtime": "fabric-1.20.1-server",
+          "pilot": {
+            "backend": "mc-pilot",
+            "helper": "mct-helper-fabric-1.20.1"
+          }
+        },
+        "multi-client": {
+          "runtime": "fabric-1.20.1-server",
+          "pilot": {
+            "backend": "mc-pilot",
+            "helper": "mct-helper-fabric-1.20.1"
+          }
+        }
+      }
+    },
+    "forge-1.20.1": {
+      "minecraft": "1.20.1",
+      "loader": "forge",
+      "build": "forge-1.20.1",
+      "java": {
+        "gradle": "java17",
+        "toolchain": 17,
+        "game": "java17"
+      },
+      "tasks": {
+        "inspect": [
+          "harnessExport"
+        ],
+        "build": [
+          "build"
+        ],
+        "unit": [
+          "harnessUnit"
+        ],
+        "serverGameTest": [
+          "harnessServerGameTest"
+        ]
+      },
+      "artifactManifest": "build/harness/forge-1.20.1.json",
+      "requiredSuites": [
+        "unit",
+        "server-gametest",
+        "server-smoke",
+        "client-smoke",
+        "multiplayer",
+        "multi-client"
+      ],
+      "caseAliases": {
+        "fixture:empty.counter_initial": "fixture.counter_initial",
+        "fixture:empty.counter_persistence": "fixture.counter_persistence"
+      },
+      "loaderVersion": "47.3.0",
+      "suiteBindings": {
+        "server-smoke": {
+          "runtime": "forge-1.20.1-server"
+        },
+        "client-smoke": {
+          "runtime": "forge-1.20.1-server",
+          "pilot": {
+            "backend": "mc-pilot",
+            "helper": "mct-helper-forge-1.20.1"
+          }
+        },
+        "multiplayer": {
+          "runtime": "forge-1.20.1-server",
+          "pilot": {
+            "backend": "mc-pilot",
+            "helper": "mct-helper-forge-1.20.1"
+          }
+        },
+        "multi-client": {
+          "runtime": "forge-1.20.1-server",
+          "pilot": {
+            "backend": "mc-pilot",
+            "helper": "mct-helper-forge-1.20.1"
+          }
+        }
+      }
+    }
+  },
+  "suites": {
+    "unit": {
+      "driver": "gradle",
+      "task": "unit",
+      "minTests": 2,
+      "expectedTests": [
+        "dev.mch.fixture.CounterStateTest.increment()",
+        "dev.mch.fixture.CounterStateTest.restoreAndBound()"
+      ],
+      "results": "build/test-results/test/TEST-dev.mch.fixture.CounterStateTest.xml"
+    },
+    "server-gametest": {
+      "driver": "gradle",
+      "task": "serverGameTest",
+      "minTests": 2,
+      "expectedTests": [
+        "fixture.counter_initial",
+        "fixture.counter_persistence"
+      ],
+      "results": "build/test-results/gametest/results.xml",
+      "eulaRequired": true
+    },
+    "server-smoke": {
+      "driver": "server-smoke",
+      "runtime": "fabric-1.21.1-server",
+      "minTests": 2,
+      "expectedTests": [
+        "server.ready",
+        "server.stopped"
+      ],
+      "requiredCapabilities": [
+        "dedicated-server"
+      ]
+    },
+    "client-smoke": {
+      "driver": "client-smoke",
+      "runtime": "fabric-1.21.1-server",
+      "pilot": {
+        "backend": "mc-pilot",
+        "helper": "mct-helper-fabric-1.21.1"
+      },
+      "minTests": 3,
+      "expectedTests": [
+        "client.helper-free",
+        "client.joined",
+        "client.stopped"
+      ],
+      "requiredCapabilities": [
+        "dedicated-server",
+        "helper-free",
+        "real-client"
+      ]
+    },
+    "multiplayer": {
+      "driver": "fixture-multiplayer",
+      "runtime": "fabric-1.21.1-server",
+      "pilot": {
+        "backend": "mc-pilot",
+        "helper": "mct-helper-fabric-1.21.1"
+      },
+      "minTests": 6,
+      "expectedTests": [
+        "multiplayer.connected",
+        "multiplayer.placed",
+        "multiplayer.gui",
+        "multiplayer.sync",
+        "multiplayer.reconnected",
+        "multiplayer.stopped"
+      ],
+      "requiredCapabilities": [
+        "dedicated-server",
+        "fixture-observation",
+        "real-client"
+      ]
+    },
+    "multi-client": {
+      "driver": "fixture-multi-client",
+      "runtime": "fabric-1.21.1-server",
+      "pilot": {
+        "backend": "mc-pilot",
+        "helper": "mct-helper-fabric-1.21.1"
+      },
+      "minTests": 7,
+      "expectedTests": [
+        "multi-client.connected",
+        "multi-client.placed",
+        "multi-client.gui",
+        "multi-client.sync",
+        "multi-client.peer-sync",
+        "multi-client.reconnected",
+        "multi-client.stopped"
+      ],
+      "requiredCapabilities": [
+        "dedicated-server",
+        "fixture-observation",
+        "real-client",
+        "multi-client"
+      ]
+    }
+  },
+  "runtimes": {
+    "fabric-1.21.1-server": {
+      "kind": "server",
+      "capabilities": [
+        "dedicated-server"
+      ],
+      "command": {
+        "executable": "{java:game}",
+        "args": [
+          "-Xmx1G",
+          "-jar",
+          "{tool:fabric-server-1.21.1}",
+          "nogui"
+        ]
+      },
+      "readyPattern": "Done \\(.*\\)! For help"
+    },
+    "neoforge-1.21.1-server": {
+      "kind": "server",
+      "capabilities": [
+        "dedicated-server"
+      ],
+      "setup": {
+        "executable": "{java:game}",
+        "args": [
+          "-jar",
+          "{tool:neoforge-server-1.21.1}",
+          "--installServer",
+          "."
+        ]
+      },
+      "command": {
+        "executable": "{java:game}",
+        "args": [
+          "-Xmx1G",
+          "@libraries/net/neoforged/neoforge/21.1.252/{os}_args.txt",
+          "nogui"
+        ]
+      },
+      "readyPattern": "Done \\(.*\\)! For help"
+    },
+    "fabric-1.20.1-server": {
+      "kind": "server",
+      "capabilities": [
+        "dedicated-server"
+      ],
+      "command": {
+        "executable": "{java:game}",
+        "args": [
+          "-Xmx1G",
+          "-jar",
+          "{tool:fabric-server-1.20.1}",
+          "nogui"
+        ]
+      },
+      "readyPattern": "Done \\(.*\\)! For help"
+    },
+    "forge-1.20.1-server": {
+      "kind": "server",
+      "capabilities": [
+        "dedicated-server"
+      ],
+      "setup": {
+        "executable": "{java:game}",
+        "args": [
+          "-jar",
+          "{tool:forge-server-1.20.1}",
+          "--installServer",
+          "."
+        ]
+      },
+      "command": {
+        "executable": "{java:game}",
+        "args": [
+          "-Xmx1G",
+          "@libraries/net/minecraftforge/forge/1.20.1-47.3.0/{os}_args.txt",
+          "nogui"
+        ]
+      },
+      "readyPattern": "Done \\(.*\\)! For help"
+    }
+  }
+}

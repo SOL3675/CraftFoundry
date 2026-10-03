@@ -1,0 +1,169 @@
+{
+  "schemaVersion": 1,
+  "projectId": "harness-fixture-fabric-1.20.1",
+  "builds": {
+    "main": {
+      "root": ".",
+      "adapter": "gradle",
+      "java": "java21"
+    }
+  },
+  "targets": {
+    "fabric-1.20.1": {
+      "minecraft": "1.20.1",
+      "loader": "fabric",
+      "build": "main",
+      "java": {
+        "gradle": "java21",
+        "toolchain": 17,
+        "game": "java17"
+      },
+      "tasks": {
+        "inspect": [
+          "harnessExport"
+        ],
+        "build": [
+          "build"
+        ],
+        "unit": [
+          "harnessUnit"
+        ],
+        "serverGameTest": [
+          "harnessServerGameTest"
+        ]
+      },
+      "artifactManifest": "build/harness/fabric-1.20.1.json",
+      "requiredSuites": [
+        "unit",
+        "server-gametest",
+        "server-smoke",
+        "client-smoke",
+        "multiplayer",
+        "multi-client"
+      ],
+      "caseAliases": {
+        "fabric-gametest-api-v1:empty.fixturegametests.counter_initial": "fixture.counter_initial",
+        "fabric-gametest-api-v1:empty.fixturegametests.counter_persistence": "fixture.counter_persistence"
+      },
+      "loaderVersion": "0.16.14"
+    }
+  },
+  "suites": {
+    "unit": {
+      "driver": "gradle",
+      "task": "unit",
+      "minTests": 2,
+      "expectedTests": [
+        "dev.mch.fixture.CounterStateTest.increment()",
+        "dev.mch.fixture.CounterStateTest.restoreAndBound()"
+      ],
+      "results": "build/test-results/test/TEST-dev.mch.fixture.CounterStateTest.xml"
+    },
+    "server-gametest": {
+      "driver": "gradle",
+      "task": "serverGameTest",
+      "minTests": 2,
+      "expectedTests": [
+        "fixture.counter_initial",
+        "fixture.counter_persistence"
+      ],
+      "results": "build/test-results/gametest/results.xml",
+      "eulaRequired": true
+    },
+    "server-smoke": {
+      "driver": "server-smoke",
+      "runtime": "fabric-server",
+      "minTests": 2,
+      "expectedTests": [
+        "server.ready",
+        "server.stopped"
+      ],
+      "requiredCapabilities": [
+        "dedicated-server"
+      ]
+    },
+    "client-smoke": {
+      "driver": "client-smoke",
+      "runtime": "fabric-server",
+      "pilot": {
+        "backend": "mc-pilot",
+        "helper": "mct-helper-fabric-1.20.1"
+      },
+      "minTests": 3,
+      "expectedTests": [
+        "client.helper-free",
+        "client.joined",
+        "client.stopped"
+      ],
+      "requiredCapabilities": [
+        "dedicated-server",
+        "helper-free",
+        "real-client"
+      ]
+    },
+    "multiplayer": {
+      "driver": "fixture-multiplayer",
+      "runtime": "fabric-server",
+      "pilot": {
+        "backend": "mc-pilot",
+        "helper": "mct-helper-fabric-1.20.1"
+      },
+      "minTests": 6,
+      "expectedTests": [
+        "multiplayer.connected",
+        "multiplayer.placed",
+        "multiplayer.gui",
+        "multiplayer.sync",
+        "multiplayer.reconnected",
+        "multiplayer.stopped"
+      ],
+      "requiredCapabilities": [
+        "dedicated-server",
+        "fixture-observation",
+        "real-client"
+      ]
+    },
+    "multi-client": {
+      "driver": "fixture-multi-client",
+      "runtime": "fabric-server",
+      "pilot": {
+        "backend": "mc-pilot",
+        "helper": "mct-helper-fabric-1.20.1"
+      },
+      "minTests": 7,
+      "expectedTests": [
+        "multi-client.connected",
+        "multi-client.placed",
+        "multi-client.gui",
+        "multi-client.sync",
+        "multi-client.peer-sync",
+        "multi-client.reconnected",
+        "multi-client.stopped"
+      ],
+      "requiredCapabilities": [
+        "dedicated-server",
+        "fixture-observation",
+        "real-client",
+        "multi-client"
+      ]
+    }
+  },
+  "runtimes": {
+    "fabric-server": {
+      "kind": "server",
+      "capabilities": [
+        "dedicated-server"
+      ],
+      "command": {
+        "executable": "{java:game}",
+        "args": [
+          "-Xmx1G",
+          "-jar",
+          "{tool:fabric-server-1.20.1}",
+          "nogui"
+        ]
+      },
+      "readyPattern": "Done \\(.*\\)! For help"
+    }
+  }
+}
