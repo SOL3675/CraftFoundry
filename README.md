@@ -17,6 +17,8 @@ node dist/cli/main.js --help
 
 `npm run check` checks TypeScript and harness contracts. These tests use dummy runtimes and do not establish real Minecraft support. Generated `dist/`, tarballs, and `.harness/` are ignored.
 
+CraftAtlas is an independent pinned submodule at `projects/craft-atlas`. The repository-only [survival acquisition suite](docs/survival.md) uses its real data/analysis APIs, with reproducible offline cases and explicit unknown external sources. Initialize the submodule, then run `npm run check:atlas` and `npm run test:atlas`. Current common scope: Fabric/NeoForge Minecraft 1.21.1.
+
 ## Use
 
 The package is unpublished and remains `private: true`. See [distribution and development](docs/distribution.md) for local packages and the independent [CraftAtlas repository](https://github.com/SOL3675/CraftAtlas). No registry publication is required.
