@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
+import { realpath, mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createServer } from 'node:net';
@@ -9,7 +9,7 @@ import { McPilotRuntimeAdapter } from '../dist/adapters/runtime/mc-pilot.js';
 
 // These are backend protocol/ownership fixtures, not Minecraft test results.
 async function fixture(t: test.TestContext, extra: Record<string, unknown> = {}) {
-  const dir = await mkdtemp(join(tmpdir(), 'mch pilot 空白 日本語 '));
+  const dir = await realpath(await mkdtemp(join(tmpdir(), 'mch pilot 空白 日本語 ')));
   const backendRoot = join(dir, 'node_modules', '@kzheart_', 'mc-pilot');
   for (const path of ['dist/util', 'dist/instance', 'dist/client', 'dist/download/client', 'scripts', 'data']) await mkdir(join(backendRoot, path), { recursive: true });
   await writeFile(join(backendRoot, 'package.json'), JSON.stringify({ name: '@kzheart_/mc-pilot', version: '0.15.0', type: 'module' }));

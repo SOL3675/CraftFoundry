@@ -1,6 +1,6 @@
 # Continuous integration
 
-[Contract CI](../.github/workflows/contracts.yml) runs npm clean install, typecheck, tests, and pack on Windows and Ubuntu with Node 24.19.0. It uploads package and run artifacts. Keep the workflow's npm version aligned with consumer package generation.
+[Contract CI](../.github/workflows/contracts.yml) runs npm clean install, typecheck, tests, and pack on Windows and Ubuntu with Node 24.19.0. It uploads package and run artifacts. The workflow installs npm 11.9.0 into an ignored local prefix and invokes its JS entry point explicitly, avoiding differences between bundled and globally upgraded npm on Windows. Keep that version aligned with consumer package generation.
 
 [Fixture CI](../.github/workflows/fixtures.yml) is a manually dispatched real-game workflow. It accepts a target (or all) and explicit existing EULA acceptance, defaulting to false. Only select true when the user has already accepted Minecraft's EULA and authorizes its reuse in CI. Setup failure does not count as a game pass.
 

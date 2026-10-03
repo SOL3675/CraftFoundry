@@ -89,6 +89,8 @@ Use [the Gradle exporter](../templates/gradle/README.md). Preserve an explicit `
 
 Kinds are `distribution`, `runtime-dependency`, `sources`, and `development`; sides are `client`, `server`, and `both`. At least one distribution is required. Sources/development/javadoc JARs cannot serve as distributions. Files are saved with size and SHA-256 under the Run; changed build output requires rebuilding before capture.
 
+Project-owned paths accept the supplied root spelling and its canonical real path, including Windows 8.3 aliases. Existing parents must still resolve inside that canonical root; an escaping symlink or junction is rejected before creating or reading managed files.
+
 Build roots and deployed artifacts must stay within their declared roots: absolute paths, parent traversal, reserved Windows names, and escaping symlinks are rejected. Build root `.` is allowed. Optional inspection classpath/source metadata may describe external paths, but does not authorize deployment of those files.
 
 ## Suites and results

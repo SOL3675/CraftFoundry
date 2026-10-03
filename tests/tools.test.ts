@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { realpath, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -8,7 +8,7 @@ import { installMcPilot, validateMcPilotInstallation } from '../dist/core/tools.
 
 const hash = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex');
 async function fixture() {
-  const root = await mkdtemp(path.join(tmpdir(), 'mch tools 日本語 '));
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'mch tools 日本語 ')));
   const templateRoot = path.join(root, 'test-template'); await mkdir(templateRoot);
   const tarball = Buffer.from('offline npm tarball fixture');
   const helper = Buffer.from('offline helper fixture');

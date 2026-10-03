@@ -33,7 +33,7 @@ Foundry must never install Atlas, recurse into submodules during bootstrap, or a
 Create the tarball in a reviewed source checkout, copy it into an ignored local dependency directory in the consumer, and install it with an exact file dependency:
 
 ```console
-npm install --save-dev --save-exact ./craft-foundry-0.1.1.tgz --ignore-scripts
+npm install --save-dev --save-exact ./craft-foundry-0.1.2.tgz --ignore-scripts
 npx mch --help
 ```
 

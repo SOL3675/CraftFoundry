@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { chmod, mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
+import { realpath, chmod, mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -11,7 +11,7 @@ import { gradleCommand } from '../dist/platform/gradle.js';
 import { runProcess } from '../dist/platform/process.js';
 
 async function fixture() {
-  const root = await mkdtemp(path.join(tmpdir(), 'mch Gradle 日本語 '));
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'mch Gradle 日本語 ')));
   await mkdir(path.join(root, 'build/libs'), { recursive: true });
   const manifest: ArtifactManifest = { schemaVersion: 1, target: 'fabric-1.21.1', minecraft: '1.21.1',
     loader: 'fabric', loaderVersion: '0.16.14', mappings: 'yarn:1.21.1', artifacts: [

@@ -9,7 +9,7 @@ import { assertContainedPath } from '../dist/core/paths.js';
 import type { LoadedConfig } from '../src/core/types.ts';
 
 async function directories(t: any) {
-  const temporary = await mkdtemp(path.join(tmpdir(), 'mch containment '));
+  const temporary = await realpath(await mkdtemp(path.join(tmpdir(), 'mch containment ')));
   const root = path.join(temporary, 'project');
   const external = path.join(temporary, 'external');
   await Promise.all([mkdir(root), mkdir(external)]);
@@ -54,4 +54,28 @@ test('path checks accept a new contained directory but refuse outside source rea
   await redirect(root, 'linked-source', external);
   await assert.rejects(assertContainedPath(root, path.join(root, 'linked-source', 'source.java')), /outside project root/);
   await assert.rejects(assertContainedPath(root, path.join(external, 'source.java')), /escapes project root/);
+});
+
+
+test('trusted root aliases accept existing and missing descendants but reject redirected children', async t => {
+  const { root, external } = await directories(t);
+  const alias = path.join(path.dirname(root), 'project-alias');
+  await symlink(root, alias, process.platform === 'win32' ? 'junction' : 'dir');
+  await writeFile(path.join(root, 'owned.txt'), 'owned');
+  await assertContainedPath(alias, path.join(alias, 'owned.txt'));
+  await assertContainedPath(alias, path.join(alias, 'missing', 'child'));
+  await assertContainedPath(alias, path.join(root, 'missing', 'child'));
+  await redirect(root, 'escape', external);
+  await assert.rejects(assertContainedPath(alias, path.join(alias, 'escape', 'missing')), /resolves outside project root/);
+  await assert.rejects(assertContainedPath(alias, path.join(external, 'missing')), /escapes project root/);
+  assert.deepEqual(await readdir(external), []);
+});
+
+test('raw temporary-root spelling stays contained after realpath normalization', async t => {
+  // GitHub Windows runners use an 8.3 TEMP parent; do not normalize this input.
+  const root = await mkdtemp(path.join(tmpdir(), 'mch raw temp '));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await assertContainedPath(root, path.join(root, 'new', 'child'));
+  await writeFile(path.join(root, 'existing.txt'), 'owned');
+  await assertContainedPath(root, path.join(root, 'existing.txt'));
 });

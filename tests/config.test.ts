@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile, mkdir, symlink } from 'node:fs/promises';
+import { realpath, mkdtemp, rm, writeFile, mkdir, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { loadConfig, validateArtifactManifest, ConfigError } from '../dist/core/config.js';
@@ -20,7 +20,7 @@ function config() {
 }
 
 async function project(t: { after: (fn: () => Promise<void>) => void }, value: unknown = config()) {
-  const root = await mkdtemp(path.join(tmpdir(), 'mch 設定 test '));
+  const root = await realpath(await mkdtemp(path.join(tmpdir(), 'mch 設定 test ')));
   t.after(() => rm(root, { recursive: true, force: true }));
   await writeFile(path.join(root, 'harness.config.json'), JSON.stringify(value));
   return root;
