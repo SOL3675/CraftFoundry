@@ -39,6 +39,10 @@ Reports and JUnit output live in `.harness/runs/<run-id>/`. Exit codes are 0 for
 
 See [tools](docs/tools.md), [Skills](docs/skills.md), [Linux setup](docs/linux.md), [CI](docs/ci.md), and [support constraints](docs/support.md).
 
+## Per-Mod acquisition definitions
+
+Use the [acquisition definition template](templates/acquisition/README.md) to describe version-scoped per-Mod definitions and regression cases for custom serializers, machines, and other ways to obtain items. The [survival development checks](docs/survival.md#per-mod-acquisition-definitions-and-development-checks) explicitly report unsupported or undeclared mechanisms and missing inputs. Normal validation and Windows/Ubuntu CI use the pinned Atlas without a local source override. Use `--atlas-source` for explicit local validation of upcoming Atlas changes. Java hook semantics are not inferred and remain unknown.
+
 ## License
 
 Original CraftFoundry code and documentation are licensed under [MIT](LICENSE), copyright (c) 2026 SOL3675. Files with separate license or copyright notices retain those terms and notices, including the fixture MIT licenses and Gradle Wrapper's Apache-2.0 headers and bundled notices. Dependencies, downloaded tools, Minecraft, and other Mods retain their own licenses. The npm package includes LICENSE and the existing fixture/Gradle notices; fixture binary and source JARs include their existing MIT license in `META-INF/LICENSE`.
