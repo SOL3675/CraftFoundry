@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "survival:acquisition",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "priority": 10,
   "targets": {
     "minecraft": "1.21.1",
@@ -16,7 +16,8 @@
     ]
   },
   "verified": [
-    "Synthetic authoring fixture only; replace with reviewed code/version/test evidence for your Mod"
+    "Synthetic authoring fixture only; replace with exact Mod/source/test review, capture session/generation, effective resource ID, source pack ID and byte SHA-256",
+    "Review RecipeManager registration, conditions, machine power and execution before declaring executable; raw JSON alone is insufficient"
   ],
   "operations": [
     {
@@ -63,7 +64,7 @@
         "unknown": [],
         "costs": []
       },
-      "evidence": "Synthetic press consumes two materials and requires explicitly enabled power",
+      "evidence": "Synthetic execution review: survival:recipe/press.json effective file/reviewed overrides mod/survival; two materials consumed with scenario lootContext.powered=true. Fictional runtime fixture only.",
       "override": []
     }
   ],
@@ -103,7 +104,7 @@
       "enabled": true,
       "costs": [],
       "raw": {
-        "fixture": "Explicit code acquisition transformation, not a seed"
+        "fixture": "Explicit reviewed code acquisition transformation; custom-directory JSON alone does not establish this route"
       },
       "fieldEvidence": {},
       "conflicts": []

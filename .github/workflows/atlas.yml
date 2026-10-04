@@ -42,7 +42,7 @@ jobs:
         run: node .github/scripts/prepare-atlas.mjs
       - run: node .harness/ci/package-manager/node_modules/npm/bin/npm-cli.js run check:atlas
       - run: node .harness/ci/package-manager/node_modules/npm/bin/npm-cli.js run test:atlas
-      - name: Mod definition contract integration through the pinned submodule
+      - name: Mod definitions and datapack provenance regressions through the pinned submodule
         run: node .harness/ci/package-manager/node_modules/npm/bin/npm-cli.js run test:atlas:definitions
       - name: Offline acquisition regression (NeoForge 1.21.1; tests also cover Fabric 1.21.1)
         run: node scripts/atlas-survival.mjs --config tests/atlas/fixtures/suite.json --results .harness/atlas-survival/results.json

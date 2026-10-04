@@ -237,10 +237,388 @@
       "enumerated": 11,
       "interpreted": 11,
       "reasons": []
+    },
+    {
+      "dataset": "datapack",
+      "type": "recipe",
+      "status": "complete",
+      "enumerated": 9,
+      "interpreted": null,
+      "reasons": []
     }
   ],
   "completion": {
     "status": "complete",
     "errors": []
+  },
+  "datapack": {
+    "directories": [
+      "recipe"
+    ],
+    "selectedPacks": [
+      "vanilla",
+      "mod:survival",
+      "file/reviewed"
+    ],
+    "loadedPacks": [
+      "vanilla",
+      "mod/survival",
+      "file/reviewed"
+    ],
+    "disabledPacks": [
+      "file/disabled"
+    ],
+    "resources": [
+      {
+        "id": "survival:recipe/known.json",
+        "effective": {
+          "source": "file/reviewed",
+          "text": "{\"type\":\"minecraft:crafting_shapeless\",\"ingredients\":[{\"item\":\"survival:seed\"}],\"result\":{\"id\":\"survival:obtainable\"}}",
+          "sha256": "d08aca6e5e8e7c6b62f49adce477562222bbf5b0d485a062fdadd66f1ca8be72",
+          "data": {
+            "type": "minecraft:crafting_shapeless",
+            "ingredients": [
+              {
+                "item": "survival:seed"
+              }
+            ],
+            "result": {
+              "id": "survival:obtainable"
+            }
+          }
+        },
+        "stack": [
+          {
+            "source": "file/reviewed",
+            "text": "{\"type\":\"minecraft:crafting_shapeless\",\"ingredients\":[{\"item\":\"survival:seed\"}],\"result\":{\"id\":\"survival:obtainable\"}}",
+            "sha256": "d08aca6e5e8e7c6b62f49adce477562222bbf5b0d485a062fdadd66f1ca8be72",
+            "data": {
+              "type": "minecraft:crafting_shapeless",
+              "ingredients": [
+                {
+                  "item": "survival:seed"
+                }
+              ],
+              "result": {
+                "id": "survival:obtainable"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "survival:recipe/missing.json",
+        "effective": {
+          "source": "file/reviewed",
+          "text": "{\"type\":\"minecraft:crafting_shapeless\",\"ingredients\":[{\"item\":\"survival:seed\"},{\"item\":\"survival:missing_ingredient\"}],\"result\":{\"id\":\"survival:missing\"}}",
+          "sha256": "f205807cab5845f490335f5736446bd0fb7e1fb61e68cf4a6f76af1b7e95b3b0",
+          "data": {
+            "type": "minecraft:crafting_shapeless",
+            "ingredients": [
+              {
+                "item": "survival:seed"
+              },
+              {
+                "item": "survival:missing_ingredient"
+              }
+            ],
+            "result": {
+              "id": "survival:missing"
+            }
+          }
+        },
+        "stack": [
+          {
+            "source": "file/reviewed",
+            "text": "{\"type\":\"minecraft:crafting_shapeless\",\"ingredients\":[{\"item\":\"survival:seed\"},{\"item\":\"survival:missing_ingredient\"}],\"result\":{\"id\":\"survival:missing\"}}",
+            "sha256": "f205807cab5845f490335f5736446bd0fb7e1fb61e68cf4a6f76af1b7e95b3b0",
+            "data": {
+              "type": "minecraft:crafting_shapeless",
+              "ingredients": [
+                {
+                  "item": "survival:seed"
+                },
+                {
+                  "item": "survival:missing_ingredient"
+                }
+              ],
+              "result": {
+                "id": "survival:missing"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "survival:recipe/cycle_a.json",
+        "effective": {
+          "source": "file/reviewed",
+          "text": "{\"type\":\"minecraft:crafting_shapeless\",\"ingredients\":[{\"item\":\"survival:cycle_b\"}],\"result\":{\"id\":\"survival:cycle_a\"}}",
+          "sha256": "ac82d55388dea3efab31cc4da710711a7c038426e627f33140ac02163b202ec5",
+          "data": {
+            "type": "minecraft:crafting_shapeless",
+            "ingredients": [
+              {
+                "item": "survival:cycle_b"
+              }
+            ],
+            "result": {
+              "id": "survival:cycle_a"
+            }
+          }
+        },
+        "stack": [
+          {
+            "source": "file/reviewed",
+            "text": "{\"type\":\"minecraft:crafting_shapeless\",\"ingredients\":[{\"item\":\"survival:cycle_b\"}],\"result\":{\"id\":\"survival:cycle_a\"}}",
+            "sha256": "ac82d55388dea3efab31cc4da710711a7c038426e627f33140ac02163b202ec5",
+            "data": {
+              "type": "minecraft:crafting_shapeless",
+              "ingredients": [
+                {
+                  "item": "survival:cycle_b"
+                }
+              ],
+              "result": {
+                "id": "survival:cycle_a"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "survival:recipe/cycle_b.json",
+        "effective": {
+          "source": "file/reviewed",
+          "text": "{\"type\":\"minecraft:crafting_shapeless\",\"ingredients\":[{\"item\":\"survival:cycle_a\"}],\"result\":{\"id\":\"survival:cycle_b\"}}",
+          "sha256": "e52a9da8d3b9cdc2904aaefc4a030d0eee00f46290ca2df63f277de54739ffb0",
+          "data": {
+            "type": "minecraft:crafting_shapeless",
+            "ingredients": [
+              {
+                "item": "survival:cycle_a"
+              }
+            ],
+            "result": {
+              "id": "survival:cycle_b"
+            }
+          }
+        },
+        "stack": [
+          {
+            "source": "file/reviewed",
+            "text": "{\"type\":\"minecraft:crafting_shapeless\",\"ingredients\":[{\"item\":\"survival:cycle_a\"}],\"result\":{\"id\":\"survival:cycle_b\"}}",
+            "sha256": "e52a9da8d3b9cdc2904aaefc4a030d0eee00f46290ca2df63f277de54739ffb0",
+            "data": {
+              "type": "minecraft:crafting_shapeless",
+              "ingredients": [
+                {
+                  "item": "survival:cycle_a"
+                }
+              ],
+              "result": {
+                "id": "survival:cycle_b"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "survival:recipe/alternative_blocked.json",
+        "effective": {
+          "source": "file/reviewed",
+          "text": "{\"type\":\"minecraft:crafting_shapeless\",\"ingredients\":[{\"item\":\"survival:missing_ingredient\"}],\"result\":{\"id\":\"survival:alternative\"}}",
+          "sha256": "c3b26eb68ec2a96d4906c1501a847d057183a9005dbaae104913ab41c15016fb",
+          "data": {
+            "type": "minecraft:crafting_shapeless",
+            "ingredients": [
+              {
+                "item": "survival:missing_ingredient"
+              }
+            ],
+            "result": {
+              "id": "survival:alternative"
+            }
+          }
+        },
+        "stack": [
+          {
+            "source": "file/reviewed",
+            "text": "{\"type\":\"minecraft:crafting_shapeless\",\"ingredients\":[{\"item\":\"survival:missing_ingredient\"}],\"result\":{\"id\":\"survival:alternative\"}}",
+            "sha256": "c3b26eb68ec2a96d4906c1501a847d057183a9005dbaae104913ab41c15016fb",
+            "data": {
+              "type": "minecraft:crafting_shapeless",
+              "ingredients": [
+                {
+                  "item": "survival:missing_ingredient"
+                }
+              ],
+              "result": {
+                "id": "survival:alternative"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "survival:recipe/alternative_available.json",
+        "effective": {
+          "source": "file/reviewed",
+          "text": "{\"type\":\"minecraft:crafting_shapeless\",\"ingredients\":[{\"item\":\"survival:seed\"}],\"result\":{\"id\":\"survival:alternative\"}}",
+          "sha256": "100703899a344ecc435891143ad193a1ba065df0e0e26a2e1ae7c6492487a21d",
+          "data": {
+            "type": "minecraft:crafting_shapeless",
+            "ingredients": [
+              {
+                "item": "survival:seed"
+              }
+            ],
+            "result": {
+              "id": "survival:alternative"
+            }
+          }
+        },
+        "stack": [
+          {
+            "source": "file/reviewed",
+            "text": "{\"type\":\"minecraft:crafting_shapeless\",\"ingredients\":[{\"item\":\"survival:seed\"}],\"result\":{\"id\":\"survival:alternative\"}}",
+            "sha256": "100703899a344ecc435891143ad193a1ba065df0e0e26a2e1ae7c6492487a21d",
+            "data": {
+              "type": "minecraft:crafting_shapeless",
+              "ingredients": [
+                {
+                  "item": "survival:seed"
+                }
+              ],
+              "result": {
+                "id": "survival:alternative"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "survival:recipe/tagged.json",
+        "effective": {
+          "source": "file/reviewed",
+          "text": "{\"type\":\"minecraft:crafting_shapeless\",\"ingredients\":[{\"tag\":\"survival:materials\"}],\"result\":{\"id\":\"survival:tagged\"}}",
+          "sha256": "a57a228b76ebc9797439fa8322c33a1eb4f29ac178d672868e0bdb7b0c340281",
+          "data": {
+            "type": "minecraft:crafting_shapeless",
+            "ingredients": [
+              {
+                "tag": "survival:materials"
+              }
+            ],
+            "result": {
+              "id": "survival:tagged"
+            }
+          }
+        },
+        "stack": [
+          {
+            "source": "file/reviewed",
+            "text": "{\"type\":\"minecraft:crafting_shapeless\",\"ingredients\":[{\"tag\":\"survival:materials\"}],\"result\":{\"id\":\"survival:tagged\"}}",
+            "sha256": "a57a228b76ebc9797439fa8322c33a1eb4f29ac178d672868e0bdb7b0c340281",
+            "data": {
+              "type": "minecraft:crafting_shapeless",
+              "ingredients": [
+                {
+                  "tag": "survival:materials"
+                }
+              ],
+              "result": {
+                "id": "survival:tagged"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "survival:recipe/empty_tag.json",
+        "effective": {
+          "source": "file/reviewed",
+          "text": "{\"type\":\"minecraft:crafting_shapeless\",\"ingredients\":[{\"tag\":\"survival:empty\"}],\"result\":{\"id\":\"survival:empty_tag\"}}",
+          "sha256": "3a99309bd5a4a5153c1df1d62de3a20926443d1453a35ec0f6afd210dafce784",
+          "data": {
+            "type": "minecraft:crafting_shapeless",
+            "ingredients": [
+              {
+                "tag": "survival:empty"
+              }
+            ],
+            "result": {
+              "id": "survival:empty_tag"
+            }
+          }
+        },
+        "stack": [
+          {
+            "source": "file/reviewed",
+            "text": "{\"type\":\"minecraft:crafting_shapeless\",\"ingredients\":[{\"tag\":\"survival:empty\"}],\"result\":{\"id\":\"survival:empty_tag\"}}",
+            "sha256": "3a99309bd5a4a5153c1df1d62de3a20926443d1453a35ec0f6afd210dafce784",
+            "data": {
+              "type": "minecraft:crafting_shapeless",
+              "ingredients": [
+                {
+                  "tag": "survival:empty"
+                }
+              ],
+              "result": {
+                "id": "survival:empty_tag"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": "survival:recipe/press.json",
+        "effective": {
+          "source": "file/reviewed",
+          "text": "{\"type\":\"survival:press\",\"custom_input\":\"survival:seed\",\"custom_output\":\"survival:custom\",\"neoforge:conditions\":[{\"type\":\"survival:powered\"}]}",
+          "sha256": "98d492a1b77e9e42cf348ae7f8e61b5837bf66e45531b08861d4f9d976609f05",
+          "data": {
+            "type": "survival:press",
+            "custom_input": "survival:seed",
+            "custom_output": "survival:custom",
+            "neoforge:conditions": [
+              {
+                "type": "survival:powered"
+              }
+            ]
+          }
+        },
+        "stack": [
+          {
+            "source": "mod/survival",
+            "text": "{\"type\":\"survival:press\",\"custom_input\":\"survival:missing_ingredient\",\"custom_output\":\"survival:custom\"}",
+            "sha256": "0101c7fdd62e911a6e82b421031359e583967c345f58983f939ef78b67d62936",
+            "data": {
+              "type": "survival:press",
+              "custom_input": "survival:missing_ingredient",
+              "custom_output": "survival:custom"
+            }
+          },
+          {
+            "source": "file/reviewed",
+            "text": "{\"type\":\"survival:press\",\"custom_input\":\"survival:seed\",\"custom_output\":\"survival:custom\",\"neoforge:conditions\":[{\"type\":\"survival:powered\"}]}",
+            "sha256": "98d492a1b77e9e42cf348ae7f8e61b5837bf66e45531b08861d4f9d976609f05",
+            "data": {
+              "type": "survival:press",
+              "custom_input": "survival:seed",
+              "custom_output": "survival:custom",
+              "neoforge:conditions": [
+                {
+                  "type": "survival:powered"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "limitations": [
+      "Synthetic active resources and visible override stack; not a game capture"
+    ]
   }
 }
