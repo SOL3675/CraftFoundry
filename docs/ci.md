@@ -13,3 +13,5 @@ The workflow pins Actions by commit, Node, Temurin Java 17/21, and the mc-pilot 
 Evidence collection and upload use `always()`, including incomplete reports after cancellation. `.harness/ci/evidence/` keeps reports, JUnit, logs, redacted source identities, referenced screenshots, crash reports, explicit Mod artifacts, and configuration diagnostics, preserving Run-relative paths. Game caches, full worlds, backend node_modules, and unrelated files are excluded. Artifacts expire after 14 days; export required release evidence before expiry.
 
 To adapt the packaged workflow to another project, see [the CI template](../templates/ci/README.md). Executable configuration and contract tests do not prove a hosted real-game run passed. Run all required suites before making a release claim.
+
+The Atlas job requires `check:atlas`, `test:atlas`, and `test:atlas:definitions` plus baseline and custom acquisition regressions through the exact submodule pin on Windows/Ubuntu. Analysis never selects a fixed sibling source override in CI. Custom regression evidence is included in the Atlas survival artifact.

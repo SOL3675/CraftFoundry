@@ -41,6 +41,10 @@ mch report --run <run-id> --json
 
 固定 Java と Xvfb による CI 設定と成功・失敗時の証拠回収は [CI](docs/ci.md)、配布用 workflow は `templates/ci` にあります。
 
+## Mod ごとの取得定義
+
+独自 serializer・機械・その他のアイテム取得方法は、[取得定義テンプレート](templates/acquisition/README.md) を使って Mod ごとのバージョン限定定義と回帰ケースを記述できます。[survival 開発チェック](docs/survival.md#per-mod-acquisition-definitions-and-development-checks) は未対応・未記載・材料不足を明示します。pin 済み Atlas に対する通常検証と Windows/Ubuntu CI はローカル source 指定なしで実行します。次の Atlas 変更の明示的なローカル検証には `--atlas-source` を指定できます。Java hook の意味は推測せず unknown を維持します。
+
 ## ライセンス
 
 CraftFoundry 独自のコードとドキュメントには [MIT](LICENSE) を適用します（Copyright (c) 2026 SOL3675）。個別のライセンス・著作権表示があるファイルは、その条件と表示を維持します。既存 fixture の MIT 表示と Gradle Wrapper の Apache-2.0 ヘッダー・同梱表示は変更しません。依存ライブラリ、取得するツール、Minecraft、他の Mod はそれぞれのライセンスに従います。npm パッケージには LICENSE と既存の fixture・Gradle 表示を、fixture のバイナリ・ソース JAR には既存の MIT 本文を `META-INF/LICENSE` として同梱します。npm パッケージは引き続き未公開・`private: true` です。
