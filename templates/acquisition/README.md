@@ -27,8 +27,8 @@ From Foundry, exercise the complete representative fixture through real Atlas AP
 
 ```console
 npm run check:atlas
-npm run test:atlas:definitions -- --atlas-source ../CraftAtlas
-node scripts/atlas-survival.mjs --config tests/atlas-definitions/fixtures/suite.json --results .harness/custom/results.json --atlas-source ../CraftAtlas
+npm run test:atlas:definitions
+node scripts/atlas-survival.mjs --config tests/atlas-definitions/fixtures/suite.json --results .harness/custom/results.json
 ```
 
-The fixture and tests are repository-only; they are not included in the installed npm harness. After the upgraded Atlas commit is published and pinned, omit the local source option and require `test:atlas:definitions` in CI. Missing upgrade/access/coverage is a failure, not a substitute success. See the [survival guide](../../docs/survival.md) for process runtime configuration, supported targets and evidence limits.
+The fixture and tests are repository-only; they are not included in the installed npm harness. The tracked submodule supplies the upgraded contract and CI requires `test:atlas:definitions`. Use `--atlas-source <clean-checkout>` only for explicit development of a future Atlas revision. Missing upgrade/access/coverage is a failure, not a substitute success. See the [survival guide](../../docs/survival.md) for process runtime configuration, supported targets and evidence limits.

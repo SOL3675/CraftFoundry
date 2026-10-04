@@ -84,15 +84,15 @@ Declare each custom mechanism in `mechanisms` with a namespaced ID, owning Mod, 
 
 After an overlay, Atlas rebuilds only derived recipe interpretation coverage and adds coverage for additional processes; raw recipe/world/viewer acquisition coverage is unchanged. The Foundry evidence retains original coverage. Unverified hooks, unknown costs/constraints/predicates, incomplete captures and external surveys still block a green suite. Historical runtime unsupported diagnostics remain available alongside field replacement history.
 
-This feature requires Atlas's `definitionContractVersion = 2`. The currently tracked gitlink remains the reachable original Atlas commit; it does not supply the upgraded contract. Until the reviewed change is published and pinned, use an explicit clean local source:
+The tracked Atlas gitlink supplies `definitionContractVersion = 2` from a reachable commit. Normal development and CI use the pinned submodule without a local source override:
 
 ```console
 npm run check:atlas
 npm run test:atlas
-npm run test:atlas:definitions -- --atlas-source ../CraftAtlas
-node scripts/atlas-survival.mjs --config tests/atlas-definitions/fixtures/suite.json --results .harness/custom/results.json --atlas-source ../CraftAtlas
+npm run test:atlas:definitions
+node scripts/atlas-survival.mjs --config tests/atlas-definitions/fixtures/suite.json --results .harness/custom/results.json
 ```
 
 `--atlas-source` is a development override only and is recorded with the full clean checkout commit in evidence. Without it the CLI still verifies a clean checkout at the exact recorded gitlink. New definition suites fail explicitly against the older pin; ordinary survival suites remain compatible. Root install/build/pack still does not install or ship Atlas.
 
-Delivery order: publish/merge the reviewed Atlas definition change first, update Foundry's gitlink to its final reachable SHA, add `npm run test:atlas:definitions` to Atlas integration CI alongside the existing checks, then deliver Foundry. Re-run all three Atlas integration checks without the source override after the pin update. If Atlas is squash-merged, use the resulting remote SHA. Keep Atlas's independent Foundry package pin and lockfile unchanged. Publishing, PR changes and pin delivery require separate user authorization.
+The Windows/Ubuntu Atlas integration CI runs all three integration checks and both representative suites through the default pinned path. For future definition contract updates, publish the reviewed Atlas commit first, update Foundry's gitlink to its final reachable SHA, then deliver Foundry. Re-run all three Atlas integration checks without the source override after each pin update. If Atlas is squash-merged, use the resulting remote SHA. Keep Atlas's independent Foundry package pin and lockfile unchanged. Publishing, PR changes and pin delivery require separate user authorization.
