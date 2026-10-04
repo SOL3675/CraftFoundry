@@ -14,4 +14,4 @@ Evidence collection and upload use `always()`, including incomplete reports afte
 
 To adapt the packaged workflow to another project, see [the CI template](../templates/ci/README.md). Executable configuration and contract tests do not prove a hosted real-game run passed. Run all required suites before making a release claim.
 
-The Atlas job requires `check:atlas`, `test:atlas`, and `test:atlas:definitions` plus baseline and custom acquisition regressions through the exact submodule pin on Windows/Ubuntu. Analysis never selects a fixed sibling source override in CI. Custom regression evidence is included in the Atlas survival artifact.
+The Atlas job requires `check:atlas`, `test:atlas`, and `test:atlas:definitions` plus baseline and custom acquisition regressions through the exact submodule pin on Windows/Ubuntu. The definition tests include active datapack evidence, overrides and unreviewed/source-only paths on both loaders. Analysis never selects a fixed sibling source override in CI. Custom regression evidence is included in the Atlas survival artifact.

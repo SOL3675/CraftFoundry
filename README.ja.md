@@ -45,6 +45,8 @@ mch report --run <run-id> --json
 
 独自 serializer・機械・その他のアイテム取得方法は、[取得定義テンプレート](templates/acquisition/README.md) を使って Mod ごとのバージョン限定定義と回帰ケースを記述できます。[survival 開発チェック](docs/survival.md#per-mod-acquisition-definitions-and-development-checks) は未対応・未記載・材料不足を明示します。pin 済み Atlas に対する通常検証と Windows/Ubuntu CI はローカル source 指定なしで実行します。次の Atlas 変更の明示的なローカル検証には `--atlas-source` を指定できます。Java hook の意味は推測せず unknown を維持します。
 
+定義の作成前に、稼働中サーバーの datapack 証拠と runtime entry を照合します。effective JSON、byte hash、source pack ID、見える範囲の override stack は入手検証の証拠に保持されます。raw resource だけでは実行可能な経路や閉じた coverage を証明できず、source-only／独自 API の経路には明示的なレビューが必要です。対応する `atlas datapack` の問い合わせと任意の custom directory の capture 手順はテンプレートに記載しています。
+
 ## ライセンス
 
 CraftFoundry 独自のコードとドキュメントには [MIT](LICENSE) を適用します（Copyright (c) 2026 SOL3675）。個別のライセンス・著作権表示があるファイルは、その条件と表示を維持します。既存 fixture の MIT 表示と Gradle Wrapper の Apache-2.0 ヘッダー・同梱表示は変更しません。依存ライブラリ、取得するツール、Minecraft、他の Mod はそれぞれのライセンスに従います。npm パッケージには LICENSE と既存の fixture・Gradle 表示を、fixture のバイナリ・ソース JAR には既存の MIT 本文を `META-INF/LICENSE` として同梱します。npm パッケージは引き続き未公開・`private: true` です。

@@ -4,6 +4,30 @@ Use this opt-in template only with the repository-only [Foundry survival suite](
 
 `definitions.json` shows two extension points: replace the interpretation of one captured custom serializer, and add a material-consuming code acquisition process. AND input slots, OR alternatives, captured tags, requirements and unknowns keep their Atlas meaning. Unverified machine power, Java hooks, predicates or custom constraints must remain opaque/unknown. The definition does not change the game.
 
+## Inspect active datapack evidence first
+
+Build the Mod, load that distribution with the intended server packs/configuration, wait for startup/reload completion, and run `craftatlas dump <new-label>` from the server console (or `/craftatlas dump <new-label>` in game). Keep the completed capture, including `datapack.json`, manifest and completion, with the Run. Commands below run from the Atlas checkout and accept either a snapshot JSON or a completed capture directory:
+
+```console
+pnpm atlas datapack --snapshot <capture> --limit 100 --offset 0 --json
+pnpm atlas datapack yourmod:recipe/press.json --snapshot <capture> --json
+pnpm atlas inspect yourmod:press --snapshot <capture> --json
+pnpm atlas coverage --snapshot <capture> --json
+pnpm atlas diff --before <before-capture> --after <after-capture> --json
+```
+
+Read all relevant pages (`resources.total`/`truncated`; increase `--offset`). Inspect `effective.text`, `effective.data`, `effective.sha256`, `effective.source` and `stack` in visible low-to-high order, along with capture session/generation and exact installed Mod versions. Review the effective variant against RecipeManager data; lower variants are provenance, not extra processes. `selectedPacks`, `loadedPacks` and `disabledPacks` are distinct IDs, not inferred authorship. Raw changes in a diff do not by themselves prove changed runtime behavior. CLI exit 0 means a completed query; inspect statuses and diagnostics.
+
+Both supported loaders capture active server resources independently of JEI/EMI. To include a separate server JSON directory, add `-Dcraftatlas.resourceDirectories=machines,yourmod/acquisition` to the actual game JVM before startup. These are paths below `data/<namespace>/`; `recipe` is always captured. Only JSON in those directories is included; disabled-pack contents and client assets are excluded. Older captures report `captured: false`, which is missing evidence, not proof of no resources.
+
+## Review semantics and execution
+
+A standard resource `yourmod:recipe/press.json` maps to process `yourmod:press`; a custom-directory resource has no assumed recipe ID convention. Use an explicit definition addition for a reviewed custom API. Unknown serializers and standard JSON absent from RecipeManager (including condition-rejected or script-removed recipes) remain opaque/unconfirmed with no inferred outputs. A runtime-only record lacks source provenance and requires explicit execution review in this suite.
+
+Before setting `interpretation: "supported"` and `execution: "executable"`, verify registration/custom API behavior, inputs, outputs, conditions, power, equipment and remaining costs against exact-version code and execution evidence. Use an explicit `replace` patch for scalar execution state; clearing `unknown` alone does not establish execution. Record the resource ID, effective source/hash, session/generation, source path and execution/test reference in `verified`/operation `evidence`. The fictional example's enabled power is an explicit scenario fact (`gameRules.lootContext.powered`), not an implementation of a Java power hook. Preserve an opaque requirement or unknown reason whenever the hook cannot be reviewed.
+
+Overlays preserve raw JSON, datapack variants, field provenance and replacement history. Raw capture coverage cannot be promoted by definitions or external surveys. Custom-directory `datapackInterpretation` coverage remains unsupported even with an addition; report that blocker until reviewed Atlas support can resolve it. Malformed resources, source/runtime serializer conflicts and unreviewed runtime-only records also prevent a green Foundry suite. Do not remove them from a capture to obtain a pass.
+
 Copy the pack into your Mod (for example `craftatlas/definitions.json`) and add paths and mechanism declarations to its survival suite:
 
 ```json
@@ -27,8 +51,9 @@ From Foundry, exercise the complete representative fixture through real Atlas AP
 
 ```console
 npm run check:atlas
+npm run test:atlas
 npm run test:atlas:definitions
 node scripts/atlas-survival.mjs --config tests/atlas-definitions/fixtures/suite.json --results .harness/custom/results.json
 ```
 
-The fixture and tests are repository-only; they are not included in the installed npm harness. The tracked submodule supplies the upgraded contract and CI requires `test:atlas:definitions`. Use `--atlas-source <clean-checkout>` only for explicit development of a future Atlas revision. Missing upgrade/access/coverage is a failure, not a substitute success. See the [survival guide](../../docs/survival.md) for process runtime configuration, supported targets and evidence limits.
+The fixture and tests are repository-only; they are not included in the installed npm harness. The tracked submodule supplies the upgraded contract and CI requires `test:atlas:definitions`, including raw-resource, override and source-only regressions for both loaders. Inspect the result evidence's `datapack`, `resourceDiagnostics`, `definitionProcesses` (raw/provenance/history), original/effective coverage and definition hashes. Use `--atlas-source <clean-checkout>` only for explicit development of a future Atlas revision. Missing upgrade/access/coverage is a failure, not a substitute success. See the [survival guide](../../docs/survival.md) for process runtime configuration, supported targets and evidence limits.

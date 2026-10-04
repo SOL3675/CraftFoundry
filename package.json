@@ -1,6 +1,6 @@
 {
   "name": "craft-foundry",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "CraftFoundry \u2014 reproducible Minecraft mod build and validation harness",
   "private": true,
   "license": "MIT",

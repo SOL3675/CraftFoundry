@@ -102,6 +102,18 @@ test('Foundry process suite executes custom cases through the default pin or exp
   assert.equal(passed.targets[0]!.suites[0]!.detected, 10);
   const evidence = JSON.parse(readFileSync(join(project, '.harness/runs', passed.id, 'sessions/neoforge-1.21.1/acquisition/results.json.evidence.json'), 'utf8'));
   assert.equal(evidence.atlasSource, sourceOptions.length ? 'explicit-local-development' : 'pinned-submodule'); assert.match(evidence.atlasCommit, /^[a-f0-9]{40}$/);
+  assert.deepEqual(evidence.datapack, fixture().datapack);
+  assert.ok(evidence.definitionProcesses.find((p: { id: string }) => p.id === 'survival:press').fieldHistory.execution.length);
+  const rawOnly = fixture();
+  rawOnly.recipes = rawOnly.recipes.filter(r => r.id !== 'survival:press');
+  rawOnly.coverage.find(c => c.dataset === 'recipes')!.enumerated!--;
+  writeFileSync(join(project, 'raw-only.json'), JSON.stringify(rawOnly));
+  const incompletePack = packs()[0]!; delete incompletePack.operations[0]!.patch.execution;
+  writeFileSync(join(project, 'unreviewed.json'), JSON.stringify(incompletePack));
+  c.snapshot = 'raw-only.json'; c.definitions = ['unreviewed.json']; writeFileSync(input, JSON.stringify(c));
+  const rawFailed = await run(); assert.equal(rawFailed.status, 'failed');
+  assert.ok(rawFailed.targets[0]!.suites[0]!.cases.every(c => c.status === 'unsupported'), 'raw source JSON cannot turn a required process suite green');
+  c.snapshot = resolve(root, 'tests/atlas-definitions/fixtures/snapshot.json'); c.definitions = [resolve(root, 'templates/acquisition/definitions.json')];
   c.mechanisms![0]!.unknown = 'Unverifiable dynamic hook'; writeFileSync(input, JSON.stringify(c));
   const failed = await run(); assert.equal(failed.status, 'failed');
   assert.ok(failed.targets[0]!.suites[0]!.cases.every(c => c.status === 'unsupported'));

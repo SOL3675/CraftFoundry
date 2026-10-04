@@ -91,6 +91,10 @@ export function evaluateSurvival(atlas, snapshot, input, selection = {}, packs =
   if (snapshot.minecraft !== '1.21.1' || !['fabric', 'neoforge'].includes(snapshot.loader)) incomplete.push(`Unsupported Atlas/Foundry target: ${snapshot.loader} ${snapshot.minecraft}; supported: Fabric/NeoForge 1.21.1`);
   if (snapshot.recipes.some(r => r.error || r.data === null)) incomplete.push('Recipe capture contains failed or missing serialized records; definitions cannot complete capture');
   if (snapshot.completion.status !== 'complete' || snapshot.completion.errors.length) incomplete.push('Snapshot capture is incomplete');
+  if (snapshot.datapack) {
+    const rawCoverage = snapshot.coverage.filter(c => c.dataset === 'datapack');
+    if (!rawCoverage.length || rawCoverage.some(c => c.status !== 'complete' || c.enumerated === null) || rawCoverage.reduce((total, c) => total + (c.enumerated ?? 0), 0) !== snapshot.datapack.resources.length) incomplete.push('Datapack capture coverage is incomplete or its denominator does not match captured resources; raw enumeration is not semantic proof');
+  }
   if (!model.coverage.some(c => c.dataset === 'recipes' && c.status === 'complete' && c.enumerated !== null)) incomplete.push('No complete recipe acquisition coverage');
   const recipeCoverage = snapshot.coverage.filter(c => c.dataset === 'recipes');
   const wildcard = recipeCoverage.find(c => c.type === '*');
@@ -119,7 +123,11 @@ export function evaluateSurvival(atlas, snapshot, input, selection = {}, packs =
     return { ...c, status, analysis, providerEvidence, incomplete };
   });
   const results = { schemaVersion: 1, cases: details.map(c => ({ id: c.id, status: c.status, message: `${c.item}: expected ${c.expected}, Atlas ${c.analysis.status}; ${[...c.incomplete, ...c.analysis.unknown, ...c.analysis.stopReasons.map(r => r.message)].join('; ')}` })) };
-  return { results, evidence: { schemaVersion: 1, snapshotId: snapshot.id, snapshotHash: atlas.hash(snapshot), modelHash: model.contentHash, normalizerVersion: model.normalizerVersion, definitions: packs.map(pack => ({ id: pack.id, version: pack.version, hash: atlas.hash(pack) })), originalCoverage: originalModel.coverage, coverage: model.coverage, development, definitionDiagnostics: model.diagnostics.filter(d => d.rule.startsWith('definition-')), configHash: atlas.hash(config), scenario, externalSources: config.externalSources, details, limitations: [...new Set(details.flatMap(c => c.analysis.limitations))] } };
+  return { results, evidence: { schemaVersion: 1, snapshotId: snapshot.id, snapshotHash: atlas.hash(snapshot), modelHash: model.contentHash, normalizerVersion: model.normalizerVersion, definitions: packs.map(pack => ({ id: pack.id, version: pack.version, hash: atlas.hash(pack) })), originalCoverage: originalModel.coverage, coverage: model.coverage, development, definitionDiagnostics: model.diagnostics.filter(d => d.rule.startsWith('definition-')),
+    datapack: model.datapack ?? null,
+    resourceDiagnostics: model.diagnostics.filter(d => d.rule.startsWith('datapack-') || d.rule === 'recipe-resource-missing'),
+    definitionProcesses: model.processes.filter(p => p.evidence.some(e => e.startsWith('definition:'))),
+    configHash: atlas.hash(config), scenario, externalSources: config.externalSources, details, limitations: [...new Set(details.flatMap(c => c.analysis.limitations))] } };
 }
 
 /** Explicit opt-in pack paths are relative to the suite, never auto-discovered from code.
@@ -141,6 +149,13 @@ export function acquisitionDiagnostics(model, config) {
   /** @type {{rule:string,target:string,message:string}[]} */
   const diagnostics = [];
   const report = (/** @type {string} */ rule, /** @type {string} */ target, /** @type {string} */ message) => diagnostics.push({ rule, target, message });
+  for (const d of model.diagnostics.filter(d => d.rule === 'datapack-resource-error' || d.rule === 'datapack-runtime-conflict')) report(d.rule, d.target, `${d.message}; inspect effective bytes, override stack and runtime entry; repair capture or review the unresolved source/runtime conflict`);
+  for (const d of model.diagnostics.filter(d => d.rule === 'recipe-resource-missing')) {
+    const p = model.processes.find(p => p.id === d.target);
+    // Runtime-only entries need explicit execution review, not a guessed source JSON.
+    if (!p?.fieldEvidence.execution?.some(e => e.startsWith('definition:')) || p.execution !== 'executable') report('runtime-acquisition-review', d.target, `${d.message}; review the runtime API and explicitly define execution with mechanism and regression cases`);
+  }
+  for (const c of model.coverage.filter(c => c.dataset === 'datapackInterpretation' && c.status !== 'complete')) report('raw-acquisition-review', c.type, 'Custom-directory resources are raw evidence only; review the custom API and author explicit definition additions and regression cases; raw coverage and external surveys cannot close this scope');
   for (const d of model.diagnostics.filter(d => d.rule.startsWith('definition-') && !['definition-runtime-contradiction'].includes(d.rule))) report(d.rule, d.target, `${d.message}; fix the selected definition pack and add/update regression cases`);
   for (const p of model.processes.filter(p => p.interpretation === 'opaque' && p.enabled)) report('unmapped-acquisition', p.id, `Unsupported serializer/source ${p.type} (${p.id}); add an evidence-backed definition and mechanism, or retain unknown with a reason; add/update positive and missing-input tests`);
   for (const p of model.processes.filter(p => p.evidence.some(e => e.startsWith('definition:')))) {
