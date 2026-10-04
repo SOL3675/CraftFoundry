@@ -138,6 +138,15 @@
               "reachable",
               "unreachable"
             ]
+          },
+          "without": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "uniqueItems": true,
+            "minItems": 1
           }
         },
         "required": [
@@ -147,6 +156,57 @@
         ]
       },
       "minItems": 1
+    },
+    "definitions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true,
+      "minItems": 1
+    },
+    "mechanisms": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
+          },
+          "mod": {
+            "type": "string",
+            "minLength": 1
+          },
+          "processes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^[a-z0-9_.-]+:[a-z0-9_./-]+$"
+            },
+            "uniqueItems": true,
+            "minItems": 1
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1
+          },
+          "unknown": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "id",
+          "mod",
+          "processes",
+          "evidence"
+        ]
+      }
     }
   },
   "required": [

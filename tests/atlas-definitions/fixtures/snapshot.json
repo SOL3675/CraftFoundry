@@ -1,0 +1,246 @@
+{
+  "schemaVersion": 1,
+  "id": "custom-acquisition-offline",
+  "session": "offline-regression",
+  "generation": 0,
+  "mode": "dedicated",
+  "minecraft": "1.21.1",
+  "loader": "neoforge",
+  "loaderVersion": "21.1.252",
+  "collectorVersion": "0.1.0",
+  "mods": [
+    {
+      "id": "minecraft",
+      "version": "1.21.1"
+    },
+    {
+      "id": "survival",
+      "version": "fixture"
+    }
+  ],
+  "environment": {
+    "purpose": "Synthetic offline regression, not a game capture"
+  },
+  "resources": [
+    {
+      "id": "survival:seed",
+      "kind": "item",
+      "name": "seed",
+      "evidence": []
+    },
+    {
+      "id": "survival:obtainable",
+      "kind": "item",
+      "name": "obtainable",
+      "evidence": []
+    },
+    {
+      "id": "survival:no_source",
+      "kind": "item",
+      "name": "no_source",
+      "evidence": []
+    },
+    {
+      "id": "survival:missing",
+      "kind": "item",
+      "name": "missing",
+      "evidence": []
+    },
+    {
+      "id": "survival:missing_ingredient",
+      "kind": "item",
+      "name": "missing_ingredient",
+      "evidence": []
+    },
+    {
+      "id": "survival:cycle_a",
+      "kind": "item",
+      "name": "cycle_a",
+      "evidence": []
+    },
+    {
+      "id": "survival:cycle_b",
+      "kind": "item",
+      "name": "cycle_b",
+      "evidence": []
+    },
+    {
+      "id": "survival:alternative",
+      "kind": "item",
+      "name": "alternative",
+      "evidence": []
+    },
+    {
+      "id": "survival:tagged",
+      "kind": "item",
+      "name": "tagged",
+      "evidence": []
+    },
+    {
+      "id": "survival:empty_tag",
+      "kind": "item",
+      "name": "empty_tag",
+      "evidence": []
+    },
+    {
+      "id": "survival:custom",
+      "kind": "item",
+      "name": "custom",
+      "evidence": []
+    }
+  ],
+  "tags": {
+    "survival:materials": [
+      "survival:missing_ingredient",
+      "survival:seed"
+    ],
+    "survival:empty": []
+  },
+  "recipes": [
+    {
+      "id": "survival:known",
+      "type": "minecraft:crafting_shapeless",
+      "data": {
+        "ingredients": [
+          {
+            "item": "survival:seed"
+          }
+        ],
+        "result": {
+          "id": "survival:obtainable"
+        }
+      }
+    },
+    {
+      "id": "survival:missing",
+      "type": "minecraft:crafting_shapeless",
+      "data": {
+        "ingredients": [
+          {
+            "item": "survival:seed"
+          },
+          {
+            "item": "survival:missing_ingredient"
+          }
+        ],
+        "result": {
+          "id": "survival:missing"
+        }
+      }
+    },
+    {
+      "id": "survival:cycle_a",
+      "type": "minecraft:crafting_shapeless",
+      "data": {
+        "ingredients": [
+          {
+            "item": "survival:cycle_b"
+          }
+        ],
+        "result": {
+          "id": "survival:cycle_a"
+        }
+      }
+    },
+    {
+      "id": "survival:cycle_b",
+      "type": "minecraft:crafting_shapeless",
+      "data": {
+        "ingredients": [
+          {
+            "item": "survival:cycle_a"
+          }
+        ],
+        "result": {
+          "id": "survival:cycle_b"
+        }
+      }
+    },
+    {
+      "id": "survival:alternative_blocked",
+      "type": "minecraft:crafting_shapeless",
+      "data": {
+        "ingredients": [
+          {
+            "item": "survival:missing_ingredient"
+          }
+        ],
+        "result": {
+          "id": "survival:alternative"
+        }
+      }
+    },
+    {
+      "id": "survival:alternative_available",
+      "type": "minecraft:crafting_shapeless",
+      "data": {
+        "ingredients": [
+          {
+            "item": "survival:seed"
+          }
+        ],
+        "result": {
+          "id": "survival:alternative"
+        }
+      }
+    },
+    {
+      "id": "survival:tagged",
+      "type": "minecraft:crafting_shapeless",
+      "data": {
+        "ingredients": [
+          {
+            "tag": "survival:materials"
+          }
+        ],
+        "result": {
+          "id": "survival:tagged"
+        }
+      }
+    },
+    {
+      "id": "survival:empty_tag",
+      "type": "minecraft:crafting_shapeless",
+      "data": {
+        "ingredients": [
+          {
+            "tag": "survival:empty"
+          }
+        ],
+        "result": {
+          "id": "survival:empty_tag"
+        }
+      }
+    },
+    {
+      "id": "survival:press",
+      "type": "survival:press",
+      "data": {
+        "custom_input": "survival:seed",
+        "custom_output": "survival:custom"
+      }
+    }
+  ],
+  "coverage": [
+    {
+      "dataset": "recipes",
+      "type": "*",
+      "status": "complete",
+      "enumerated": 9,
+      "interpreted": null,
+      "reasons": []
+    },
+    {
+      "dataset": "registry",
+      "type": "item",
+      "status": "complete",
+      "enumerated": 11,
+      "interpreted": 11,
+      "reasons": []
+    }
+  ],
+  "completion": {
+    "status": "complete",
+    "errors": []
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "id": "survival:acquisition",
+  "version": "1.0.0",
+  "priority": 10,
+  "targets": {
+    "minecraft": "1.21.1",
+    "loader": "neoforge",
+    "mods": [
+      {
+        "id": "survival",
+        "versions": [
+          "fixture"
+        ]
+      }
+    ]
+  },
+  "verified": [
+    "Synthetic authoring fixture only; replace with reviewed code/version/test evidence for your Mod"
+  ],
+  "operations": [
+    {
+      "id": "press",
+      "selector": {
+        "id": "survival:press"
+      },
+      "action": "replace",
+      "patch": {
+        "inputs": [
+          {
+            "alternatives": [
+              {
+                "tag": "survival:materials",
+                "members": []
+              }
+            ],
+            "amount": 2,
+            "unit": "item",
+            "consumption": "consumed",
+            "evidence": []
+          }
+        ],
+        "outputs": [
+          {
+            "resource": "survival:custom",
+            "amount": 1,
+            "unit": "item",
+            "role": "primary",
+            "probability": 1,
+            "evidence": []
+          }
+        ],
+        "requirements": [
+          {
+            "kind": "context",
+            "id": "powered",
+            "predicate": true,
+            "evidence": []
+          }
+        ],
+        "interpretation": "supported",
+        "execution": "executable",
+        "unknown": [],
+        "costs": []
+      },
+      "evidence": "Synthetic press consumes two materials and requires explicitly enabled power",
+      "override": []
+    }
+  ],
+  "additions": [
+    {
+      "id": "survival:extract",
+      "sourceId": "survival:extract",
+      "type": "survival:extract",
+      "inputs": [
+        {
+          "alternatives": [
+            {
+              "resource": "survival:custom"
+            }
+          ],
+          "amount": 1,
+          "unit": "item",
+          "consumption": "consumed",
+          "evidence": []
+        }
+      ],
+      "outputs": [
+        {
+          "resource": "survival:no_source",
+          "amount": 1,
+          "unit": "item",
+          "role": "primary",
+          "probability": 1,
+          "evidence": []
+        }
+      ],
+      "requirements": [],
+      "evidence": [],
+      "interpretation": "supported",
+      "execution": "executable",
+      "unknown": [],
+      "enabled": true,
+      "costs": [],
+      "raw": {
+        "fixture": "Explicit code acquisition transformation, not a seed"
+      },
+      "fieldEvidence": {},
+      "conflicts": []
+    }
+  ]
+}

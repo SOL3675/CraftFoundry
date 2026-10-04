@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { Ajv } from 'ajv';
 
@@ -8,7 +8,9 @@ import { Ajv } from 'ajv';
 /** @typedef {import('../../projects/craft-atlas/packages/core/src/analyze.ts').Analysis} Analysis */
 /** @typedef {{resource:string, kind:string, availability:'available'|'unknown', evidence:string}} Provider */
 /** @typedef {{kind:string, status:'complete'|'partial'|'unsupported', evidence:string}} Survey */
-/** @typedef {{schemaVersion:1, snapshot:string, target:{minecraft:string,loader:string}, scenario:Scenario, providers:Provider[], externalSources:Survey[], mod?:string, items?:string[], cases?:{id:string,item:string,expected:'reachable'|'unreachable'}[]}} SurvivalConfig */
+/** @typedef {import('../../projects/craft-atlas/packages/core/src/types.ts').DefinitionPack} DefinitionPack */
+/** @typedef {{id:string,mod:string,processes:string[],evidence:string,unknown?:string}} Mechanism */
+/** @typedef {{schemaVersion:1, snapshot:string, target:{minecraft:string,loader:string}, scenario:Scenario, providers:Provider[], externalSources:Survey[], definitions?:string[], mechanisms?:Mechanism[], mod?:string, items?:string[], cases?:{id:string,item:string,expected:'reachable'|'unreachable',without?:string[]}[]}} SurvivalConfig */
 
 export const externalKinds = ['loot', 'drops', 'harvesting', 'worldgen', 'trades', 'other'];
 const ajv = new Ajv({ allErrors: true, strict: false });
@@ -17,18 +19,20 @@ const check = ajv.compile(JSON.parse(readFileSync(new URL('../../schemas/atlas-s
 /** Load the pinned checkout's source APIs without installing Atlas or its Foundry consumer dependency.
  * Node 24 strips Atlas's TypeScript; its Ajv import resolves the root's identical locked version.
  * @param {string} root
+ * @param {string} [source]
  */
-export async function loadAtlas(root) {
-  const base = resolve(root, 'projects/craft-atlas/packages/core/src');
+export async function loadAtlas(root, source) {
+  const base = resolve(source ?? resolve(root, 'projects/craft-atlas'), 'packages/core/src');
   try {
-    const [snapshot, normalization, analysis, validation, hashing] = await Promise.all([
+    const [snapshot, normalization, analysis, validation, hashing, definitions] = await Promise.all([
       import(pathToFileURL(resolve(base, 'snapshot.ts')).href),
       import(pathToFileURL(resolve(base, 'normalize.ts')).href),
       import(pathToFileURL(resolve(base, 'analyze.ts')).href),
       import(pathToFileURL(resolve(base, 'validate.ts')).href),
       import(pathToFileURL(resolve(base, 'hash.ts')).href),
+      import(pathToFileURL(resolve(base, 'definitions.ts')).href),
     ]);
-    return /** @type {{readSnapshot: (path:string)=>Snapshot, normalize: typeof import('../../projects/craft-atlas/packages/core/src/normalize.ts').normalize, analyze: typeof import('../../projects/craft-atlas/packages/core/src/analyze.ts').analyze, validate: typeof import('../../projects/craft-atlas/packages/core/src/validate.ts').validate, hash: (value:unknown)=>string}} */ ({ ...snapshot, ...normalization, ...analysis, ...validation, ...hashing });
+    return /** @type {{readSnapshot: (path:string)=>Snapshot, normalize: typeof import('../../projects/craft-atlas/packages/core/src/normalize.ts').normalize, analyze: typeof import('../../projects/craft-atlas/packages/core/src/analyze.ts').analyze, validate: typeof import('../../projects/craft-atlas/packages/core/src/validate.ts').validate, hash: (value:unknown)=>string, definitionContractVersion?: number, applyDefinitions: typeof import('../../projects/craft-atlas/packages/core/src/definitions.ts').applyDefinitions}} */ ({ ...snapshot, ...normalization, ...analysis, ...validation, ...hashing, ...definitions });
   } catch (error) {
     throw new Error('CraftAtlas APIs unavailable; run git submodule update --init projects/craft-atlas and npm ci --ignore-scripts', { cause: error });
   }
@@ -39,6 +43,7 @@ export function validateConfig(value) {
   if (!check(value)) throw new Error(`Survival configuration: ${ajv.errorsText(check.errors)}`);
   const config = /** @type {SurvivalConfig} */ (value);
   if (new Set(config.externalSources.map(s => s.kind)).size !== config.externalSources.length) throw new Error('Duplicate external source survey');
+  if (new Set(config.mechanisms?.map(m => m.id)).size !== (config.mechanisms?.length ?? 0)) throw new Error('Duplicate acquisition mechanism ID');
   if (config.cases && new Set(config.cases.map(c => c.id)).size !== config.cases.length) throw new Error('Duplicate survival case ID');
   if (config.providers.some(p => !externalKinds.includes(p.kind))) throw new Error('Unknown provider kind');
   // Inventory is a starting assumption, never implicit proof of survival acquisition.
@@ -53,15 +58,24 @@ export function validateConfig(value) {
  * @param {Snapshot} snapshot
  * @param {SurvivalConfig} input
  * @param {{mod?:string,items?:string[]}} [selection]
+ * @param {DefinitionPack[]} [packs]
  */
-export function evaluateSurvival(atlas, snapshot, input, selection = {}) {
+export function evaluateSurvival(atlas, snapshot, input, selection = {}, packs = []) {
   const config = validateConfig(input);
   const scenario = structuredClone(atlas.validate('scenario', config.scenario));
-  const model = atlas.normalize(snapshot);
+  if ((config.definitions?.length ?? 0) !== packs.length) throw new Error('Configured definitions must all be loaded before analysis');
+  if (packs.length && atlas.definitionContractVersion !== 2) throw new Error('CraftAtlas definition contract v2 required; use a reviewed upgraded gitlink or explicit --atlas-source for local development');
+  for (const pack of packs) {
+    atlas.validate('definitions', pack);
+    if (!/^[a-z0-9_.-]+:[a-z0-9_./-]+$/.test(pack.id) || !pack.verified.length || !pack.targets.mods.length) throw new Error('Mod definitions need a namespaced ID, exact Mod targets and verification evidence');
+  }
+  const originalModel = atlas.normalize(snapshot);
+  const model = packs.length ? atlas.applyDefinitions(originalModel, packs, snapshot) : originalModel;
   const knownItems = new Set(snapshot.resources.filter(r => r.kind === 'item').map(r => r.id));
   const mod = selection.mod ?? config.mod;
   const selected = selection.items ?? config.items;
   if (mod && !snapshot.mods.some(m => m.id === mod)) throw new Error(`Selected Mod absent from snapshot: ${mod}`);
+  /** @type {NonNullable<SurvivalConfig['cases']>} */
   const candidates = config.cases ?? [...knownItems].sort().map(item => ({ id: `survival:${item}`, item, expected: /** @type {const} */ ('reachable') }));
   const cases = candidates.filter(c => (!mod || c.item.startsWith(`${mod}:`)) && (!selected || selected.includes(c.item)));
   if (!cases.length) throw new Error('No survival cases selected; check Mod/item selectors');
@@ -75,6 +89,7 @@ export function evaluateSurvival(atlas, snapshot, input, selection = {}) {
   const incomplete = [];
   if (snapshot.minecraft !== config.target.minecraft || snapshot.loader !== config.target.loader) throw new Error('Snapshot Minecraft/loader does not match configured target');
   if (snapshot.minecraft !== '1.21.1' || !['fabric', 'neoforge'].includes(snapshot.loader)) incomplete.push(`Unsupported Atlas/Foundry target: ${snapshot.loader} ${snapshot.minecraft}; supported: Fabric/NeoForge 1.21.1`);
+  if (snapshot.recipes.some(r => r.error || r.data === null)) incomplete.push('Recipe capture contains failed or missing serialized records; definitions cannot complete capture');
   if (snapshot.completion.status !== 'complete' || snapshot.completion.errors.length) incomplete.push('Snapshot capture is incomplete');
   if (!model.coverage.some(c => c.dataset === 'recipes' && c.status === 'complete' && c.enumerated !== null)) incomplete.push('No complete recipe acquisition coverage');
   const recipeCoverage = snapshot.coverage.filter(c => c.dataset === 'recipes');
@@ -89,12 +104,57 @@ export function evaluateSurvival(atlas, snapshot, input, selection = {}) {
   // Never let an external survey silently complete missing capture/normalizer coverage.
   // Opening the scenario prevents Atlas from reporting impossible paths on incomplete input.
   if (incomplete.length) { scenario.closed = false; scenario.closedResources = []; }
+  const development = acquisitionDiagnostics(model, config);
+  incomplete.push(...development.map(d => d.message));
+  if (development.length) { scenario.closed = false; scenario.closedResources = []; }
   const details = cases.map(c => {
-    const analysis = atlas.analyze(model, scenario, c.item);
+    const caseScenario = structuredClone(scenario);
+    for (const id of c.without ?? []) {
+      delete caseScenario.inventory[id];
+      for (const key of /** @type {const} */ (['equipment', 'stages', 'dimensions'])) caseScenario[key] = caseScenario[key].filter((/** @type {string} */ value) => value !== id);
+    }
+    const analysis = atlas.analyze(model, caseScenario, c.item);
     const status = incomplete.length || analysis.status === 'unknown' ? 'unsupported' : analysis.status === c.expected ? 'passed' : 'failed';
-    const providerEvidence = config.providers.filter(p => p.availability === 'available' && analysis.path.includes(p.resource));
+    const providerEvidence = config.providers.filter(p => p.availability === 'available' && !c.without?.includes(p.resource) && analysis.path.includes(p.resource));
     return { ...c, status, analysis, providerEvidence, incomplete };
   });
   const results = { schemaVersion: 1, cases: details.map(c => ({ id: c.id, status: c.status, message: `${c.item}: expected ${c.expected}, Atlas ${c.analysis.status}; ${[...c.incomplete, ...c.analysis.unknown, ...c.analysis.stopReasons.map(r => r.message)].join('; ')}` })) };
-  return { results, evidence: { schemaVersion: 1, snapshotId: snapshot.id, snapshotHash: atlas.hash(snapshot), modelHash: model.contentHash, normalizerVersion: model.normalizerVersion, configHash: atlas.hash(config), scenario, externalSources: config.externalSources, details, limitations: [...new Set(details.flatMap(c => c.analysis.limitations))] } };
+  return { results, evidence: { schemaVersion: 1, snapshotId: snapshot.id, snapshotHash: atlas.hash(snapshot), modelHash: model.contentHash, normalizerVersion: model.normalizerVersion, definitions: packs.map(pack => ({ id: pack.id, version: pack.version, hash: atlas.hash(pack) })), originalCoverage: originalModel.coverage, coverage: model.coverage, development, definitionDiagnostics: model.diagnostics.filter(d => d.rule.startsWith('definition-')), configHash: atlas.hash(config), scenario, externalSources: config.externalSources, details, limitations: [...new Set(details.flatMap(c => c.analysis.limitations))] } };
+}
+
+/** Explicit opt-in pack paths are relative to the suite, never auto-discovered from code.
+ * @param {Awaited<ReturnType<typeof loadAtlas>>} atlas
+ * @param {SurvivalConfig} config
+ * @param {string} configFile
+ * @returns {DefinitionPack[]}
+ */
+export function loadDefinitions(atlas, config, configFile) {
+  if (config.definitions?.length && atlas.definitionContractVersion !== 2) throw new Error('CraftAtlas definition contract v2 required; use a reviewed upgraded gitlink or explicit --atlas-source for local development');
+  return (config.definitions ?? []).map(path => atlas.validate('definitions', JSON.parse(readFileSync(resolve(dirname(configFile), path), 'utf8'))));
+}
+
+/** Actionable development checks, shared by suite verdicts and saved evidence.
+ * @param {import('../../projects/craft-atlas/packages/core/src/types.ts').Model} model
+ * @param {SurvivalConfig} config
+ */
+export function acquisitionDiagnostics(model, config) {
+  /** @type {{rule:string,target:string,message:string}[]} */
+  const diagnostics = [];
+  const report = (/** @type {string} */ rule, /** @type {string} */ target, /** @type {string} */ message) => diagnostics.push({ rule, target, message });
+  for (const d of model.diagnostics.filter(d => d.rule.startsWith('definition-') && !['definition-runtime-contradiction'].includes(d.rule))) report(d.rule, d.target, `${d.message}; fix the selected definition pack and add/update regression cases`);
+  for (const p of model.processes.filter(p => p.interpretation === 'opaque' && p.enabled)) report('unmapped-acquisition', p.id, `Unsupported serializer/source ${p.type} (${p.id}); add an evidence-backed definition and mechanism, or retain unknown with a reason; add/update positive and missing-input tests`);
+  for (const p of model.processes.filter(p => p.evidence.some(e => e.startsWith('definition:')))) {
+    if (!(config.mechanisms ?? []).some(m => m.processes.includes(p.id))) report('undeclared-acquisition', p.id, `Definition process ${p.id} needs a mechanisms entry and regression cases`);
+  }
+  for (const mechanism of config.mechanisms ?? []) {
+    if (!model.mods.some(mod => mod.id === mechanism.mod)) report('acquisition-mod-missing', mechanism.id, `Mechanism Mod ${mechanism.mod} is absent`);
+    if (!mechanism.id.startsWith(`${mechanism.mod}:`)) report('acquisition-namespace', mechanism.id, 'Mechanism ID must belong to its declared Mod namespace');
+    if (mechanism.unknown) report('unknown-acquisition', mechanism.id, `Unverified acquisition ${mechanism.id}: ${mechanism.unknown}; keep coverage partial/unsupported and add/update tests`);
+    const processes = mechanism.processes.map(id => model.processes.find(p => p.id === id));
+    if (processes.some(p => !p)) report('acquisition-process-missing', mechanism.id, `Missing process mapping for ${mechanism.id}; add/update definitions and tests`);
+    const outputs = processes.flatMap(p => p?.outputs.map(o => o.resource) ?? []);
+    const tests = (config.cases ?? []).filter(c => outputs.includes(c.item));
+    if (!tests.some(c => c.expected === 'reachable') || !tests.some(c => c.expected === 'unreachable' && c.without?.length)) report('acquisition-tests-missing', mechanism.id, `Mechanism ${mechanism.id} needs positive and without-prerequisite regression cases; do not use an unconditional provider for a transformation`);
+  }
+  return diagnostics;
 }
