@@ -11,6 +11,7 @@ import { executeRun } from '../../dist/core/runner.js';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const source = process.env.CRAFTATLAS_DEFINITION_SOURCE ?? resolve(root, 'projects/craft-atlas');
+const sourceOptions = source === resolve(root, 'projects/craft-atlas') ? [] : ['--atlas-source', source];
 const atlas = await loadAtlas(root, source);
 assert.equal(atlas.definitionContractVersion, 2, 'Requires upgraded Atlas contract; use --atlas-source until the reviewed commit is published and pinned');
 const suite = resolve(root, 'tests/atlas-definitions/fixtures/suite.json');
@@ -84,7 +85,7 @@ test('pinned Atlas capability is respected and old APIs explicitly reject new pa
   else assert.throws(() => evaluateSurvival(old, fixture(), config(), {}, packs()), /contract v2 required/);
 });
 
-test('Foundry process suite executes custom positive and missing-input cases with local source provenance', async t => {
+test('Foundry process suite executes custom cases through the default pin or explicit development source', async t => {
   const project = mkdtempSync(join(tmpdir(), 'Custom acquisition 日本語 ')); t.after(() => rmSync(project, { recursive: true, force: true }));
   writeFileSync(join(project, 'gradlew'), '#!/bin/sh\nexit 0\n'); chmodSync(join(project, 'gradlew'), 0o755);
   writeFileSync(join(project, 'gradlew.bat'), '@echo off\r\nexit /b 0\r\n');
@@ -95,16 +96,16 @@ test('Foundry process suite executes custom positive and missing-input cases wit
   writeFileSync(join(project, 'harness.config.json'), JSON.stringify({ schemaVersion: 1, projectId: 'custom-offline', builds: { main: { root: '.', adapter: 'gradle' } },
     targets: { 'neoforge-1.21.1': { minecraft: '1.21.1', loader: 'neoforge', build: 'main', tasks: { build: ['assemble'] }, artifactManifest: 'manifest.json', requiredSuites: ['acquisition'] } },
     suites: { acquisition: { driver: 'process', runtime: 'atlas', results: 'results.json', minTests: 10, expectedTests: c.cases!.map(c => c.id) } },
-    runtimes: { atlas: { kind: 'server', capabilities: [], command: { executable: process.execPath, args: [resolve(root, 'scripts/atlas-survival.mjs'), '--config', '{projectRoot}/survival.json', '--results', '{sessionRoot}/results.json', '--atlas-source', source, '--harness'] } } } }));
+    runtimes: { atlas: { kind: 'server', capabilities: [], command: { executable: process.execPath, args: [resolve(root, 'scripts/atlas-survival.mjs'), '--config', '{projectRoot}/survival.json', '--results', '{sessionRoot}/results.json', ...sourceOptions, '--harness'] } } } }));
   const loaded = await loadConfig(project), run = () => executeRun(loaded, { command: 'test', targets: ['neoforge-1.21.1'] });
   const passed = await run(); assert.equal(passed.status, 'passed', JSON.stringify(passed.targets));
   assert.equal(passed.targets[0]!.suites[0]!.detected, 10);
   const evidence = JSON.parse(readFileSync(join(project, '.harness/runs', passed.id, 'sessions/neoforge-1.21.1/acquisition/results.json.evidence.json'), 'utf8'));
-  assert.equal(evidence.atlasSource, 'explicit-local-development'); assert.match(evidence.atlasCommit, /^[a-f0-9]{40}$/);
+  assert.equal(evidence.atlasSource, sourceOptions.length ? 'explicit-local-development' : 'pinned-submodule'); assert.match(evidence.atlasCommit, /^[a-f0-9]{40}$/);
   c.mechanisms![0]!.unknown = 'Unverifiable dynamic hook'; writeFileSync(input, JSON.stringify(c));
   const failed = await run(); assert.equal(failed.status, 'failed');
   assert.ok(failed.targets[0]!.suites[0]!.cases.every(c => c.status === 'unsupported'));
   c.definitions = ['missing.json']; writeFileSync(input, JSON.stringify(c));
-  const invalid = spawnSync(process.execPath, [resolve(root, 'scripts/atlas-survival.mjs'), '--config', input, '--results', join(project, 'invalid-results.json'), '--atlas-source', source], { encoding: 'utf8' });
+  const invalid = spawnSync(process.execPath, [resolve(root, 'scripts/atlas-survival.mjs'), '--config', input, '--results', join(project, 'invalid-results.json'), ...sourceOptions], { encoding: 'utf8' });
   assert.equal(invalid.status, 2); assert.throws(() => readFileSync(join(project, 'invalid-results.json')), /ENOENT/);
 });
