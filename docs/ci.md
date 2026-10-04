@@ -2,6 +2,8 @@
 
 [Contract CI](../.github/workflows/contracts.yml) runs npm clean install, typecheck, tests, and pack on Windows and Ubuntu with Node 24.19.0. It uploads package and run artifacts. The workflow installs npm 11.9.0 into an ignored local prefix and invokes its JS entry point explicitly, avoiding differences between bundled and globally upgraded npm on Windows. Keep that version aligned with consumer package generation.
 
+[Atlas survival contracts](../.github/workflows/atlas.yml) separately initializes the exact Atlas submodule commit and runs the saved-data acquisition suite on both OSes, limited to Fabric/NeoForge 1.21.1. Private Atlas read access is a distinct prerequisite; see [survival setup and limits](survival.md). This workflow does not run Minecraft or widen the game support matrix.
+
 [Fixture CI](../.github/workflows/fixtures.yml) is a manually dispatched real-game workflow. It accepts a target (or all) and explicit existing EULA acceptance, defaulting to false. Only select true when the user has already accepted Minecraft's EULA and authorizes its reuse in CI. Setup failure does not count as a game pass.
 
 The workflow pins Actions by commit, Node, Temurin Java 17/21, and the mc-pilot tool lock. Ubuntu runner images and apt packages remain mutable. It prepares Xvfb at 1280×720×24 with Mesa, audio/X11 libraries, and fonts, records `glxinfo -B`, then runs doctor and the required release suites in that display environment. Preserve actual environment metadata when evaluating reproducibility.

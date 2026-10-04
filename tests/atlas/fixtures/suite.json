@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "snapshot": "snapshot.json",
+  "target": {
+    "minecraft": "1.21.1",
+    "loader": "neoforge"
+  },
+  "scenario": {
+    "schemaVersion": 1,
+    "id": "survival-closed-fixture",
+    "inventory": {},
+    "equipment": [],
+    "stages": [],
+    "dimensions": [],
+    "forbiddenProcesses": [],
+    "allowedTypes": null,
+    "supply": "renewable",
+    "closed": true,
+    "closedResources": [
+      "survival:seed",
+      "survival:obtainable",
+      "survival:no_source",
+      "survival:missing",
+      "survival:missing_ingredient",
+      "survival:cycle_a",
+      "survival:cycle_b",
+      "survival:alternative",
+      "survival:tagged",
+      "survival:empty_tag",
+      "survival:custom"
+    ],
+    "gameRules": {}
+  },
+  "providers": [
+    {
+      "resource": "survival:seed",
+      "kind": "harvesting",
+      "availability": "available",
+      "evidence": "Synthetic fixture rule: seed is harvestable; renewable is an explicit model assumption"
+    }
+  ],
+  "externalSources": [
+    {
+      "kind": "loot",
+      "status": "complete",
+      "evidence": "Synthetic closed fixture: all loot acquisition methods are represented by these declarations; not a claim about Minecraft"
+    },
+    {
+      "kind": "drops",
+      "status": "complete",
+      "evidence": "Synthetic closed fixture: all drops acquisition methods are represented by these declarations; not a claim about Minecraft"
+    },
+    {
+      "kind": "harvesting",
+      "status": "complete",
+      "evidence": "Synthetic closed fixture: all harvesting acquisition methods are represented by these declarations; not a claim about Minecraft"
+    },
+    {
+      "kind": "worldgen",
+      "status": "complete",
+      "evidence": "Synthetic closed fixture: all worldgen acquisition methods are represented by these declarations; not a claim about Minecraft"
+    },
+    {
+      "kind": "trades",
+      "status": "complete",
+      "evidence": "Synthetic closed fixture: all trades acquisition methods are represented by these declarations; not a claim about Minecraft"
+    },
+    {
+      "kind": "other",
+      "status": "complete",
+      "evidence": "Synthetic closed fixture: all other acquisition methods are represented by these declarations; not a claim about Minecraft"
+    }
+  ],
+  "mod": "survival",
+  "cases": [
+    {
+      "id": "survival.obtainable",
+      "item": "survival:obtainable",
+      "expected": "reachable"
+    },
+    {
+      "id": "survival.no_source",
+      "item": "survival:no_source",
+      "expected": "unreachable"
+    },
+    {
+      "id": "survival.missing",
+      "item": "survival:missing",
+      "expected": "unreachable"
+    },
+    {
+      "id": "survival.cycle_a",
+      "item": "survival:cycle_a",
+      "expected": "unreachable"
+    },
+    {
+      "id": "survival.alternative",
+      "item": "survival:alternative",
+      "expected": "reachable"
+    },
+    {
+      "id": "survival.tagged",
+      "item": "survival:tagged",
+      "expected": "reachable"
+    },
+    {
+      "id": "survival.empty_tag",
+      "item": "survival:empty_tag",
+      "expected": "unreachable"
+    }
+  ]
+}

@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { copyFileSync, constants, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 
 interface AliasRecord { version: 2; owner: string; id: string; container: string; alias: string; target: string; cache: string; files: { path: string; sha256: string; size: number }[] }
 const recordDir = (cache: string) => join(cache, '.native-aliases');
@@ -72,8 +73,33 @@ export function prepareNativeArguments(args: readonly string[], cache: string, o
   return nativeArgs;
 }
 
-/** Called only after the owning process tree has stopped. Reject links before removing owned physical copies. */
-export function cleanupNativeAliases(cache: string, owner: string): void {
+class NativeFileLock extends Error {
+  readonly original: NodeJS.ErrnoException;
+  constructor(original: NodeJS.ErrnoException) { super(original.message, { cause: original }); this.original = original; }
+}
+
+/** Called only after the owning process tree has stopped. Await bounded Windows DLL lock release. */
+export async function cleanupNativeAliases(cache: string, owner: string): Promise<void> {
+  const timeoutMs = 5_000;
+  const deadline = performance.now() + timeoutMs;
+  let attempts = 0;
+  for (;;) {
+    attempts++;
+    try { cleanupNativeAliasesOnce(cache, owner); return; }
+    catch (error) {
+      if (!(error instanceof NativeFileLock)) throw error;
+      const remaining = deadline - performance.now();
+      if (remaining <= 0) {
+        throw Object.assign(new Error(`Native alias cleanup lock did not clear within ${timeoutMs}ms after ${attempts} attempts: ${error.original.message}`, { cause: error.original }), { code: error.original.code, path: error.original.path });
+      }
+      await delay(Math.min(50, remaining));
+      // Recheck ownership, markers and every path after yielding; never retry a stale deletion list.
+    }
+  }
+}
+
+/** Reject links before removing owned physical copies. Keep evidence and markers on a locked file. */
+function cleanupNativeAliasesOnce(cache: string, owner: string): void {
   if (process.platform !== 'win32' || !existsSync(cache)) return;
   requireOwner(owner);
   const root = realpathSync(cache);
@@ -109,7 +135,14 @@ export function cleanupNativeAliases(cache: string, owner: string): void {
         }
       };
       inspect(record.alias);
-      for (const file of files) unlinkSync(file);
+      for (const file of files) {
+        try { unlinkSync(file); }
+        catch (error) {
+          const failure = error as NodeJS.ErrnoException;
+          if (failure.code === 'EBUSY' || failure.code === 'EPERM') throw new NativeFileLock(failure);
+          throw error;
+        }
+      }
       for (const directory of directories.reverse()) rmdirSync(directory);
     }
     unlinkSync(join(record.container, 'owner.json'));

@@ -1,5 +1,7 @@
 # CraftFoundry
 
+CraftAtlas は `projects/craft-atlas` の独立した Git submodule です。[サバイバル入手経路 suite](docs/survival.md) は実際の Atlas データ形式・解析器を使い、不完全な外部入手源を unknown／未対応として扱います。`git submodule update --init projects/craft-atlas` 後に `npm run check:atlas` と `npm run test:atlas` を実行できます。今回の共通対応範囲は Minecraft 1.21.1 の Fabric／NeoForge で、オフライン成功は実ゲームの検証を意味しません。
+
 npm パッケージ名は `craft-foundry`、CLI は `mch` です。[English](README.md) | [開発・配布手順](docs/distribution.md)。CraftAtlas は独立リポジトリで、固定コミットから未公開パッケージを生成して利用します。
 
 Minecraft Java Edition の Mod を、AI Agent・開発者・CI が同じ CLI からビルドし、検証結果と証拠を保存する TypeScript / Node.js ハーネスです。

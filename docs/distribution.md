@@ -12,10 +12,10 @@ npm pack
 
 ## CraftAtlas consumer
 
-[CraftAtlas](https://github.com/SOL3675/CraftAtlas) has an independent pnpm lockfile and a bootstrap script. In its root, run:
+[CraftAtlas](https://github.com/SOL3675/CraftAtlas) is pinned as a real submodule at `projects/craft-atlas`, retaining its independent history, pnpm lockfile, and bootstrap script. Initialize with `git submodule update --init projects/craft-atlas` using existing authorized Git access. From `projects/craft-atlas`, run:
 
 ```console
-node scripts/prepare-foundry.mjs --source ../CraftFoundry
+node scripts/prepare-foundry.mjs --source ../..
 pnpm install --frozen-lockfile --ignore-scripts
 pnpm check
 pnpm test
@@ -26,7 +26,7 @@ The source argument is an existing Git checkout containing the exact commit in A
 
 Atlas pins the complete Git commit and the packed bytes in its pnpm lockfile. Its development guide owns the update procedure. A new source pin must be made available remotely before other developers can bootstrap without the local checkout. Squashing Foundry can change that commit identity; update Atlas's pin and lockfile to the final reachable commit afterward.
 
-Foundry must never install Atlas, recurse into submodules during bootstrap, or add Atlas as a root npm workspace. Future placement at `projects/craft-atlas` only changes the explicit source path to `../..` from Atlas. Keep the two histories and lockfiles independent. No submodule is required for this workflow.
+Foundry root install/build/pack must never install Atlas, recurse into submodules during bootstrap, or add Atlas as a root npm workspace. Atlas bootstraps its independently pinned Foundry main commit, rather than the parent working tree or dev tip; the parent submodule therefore creates no install cycle. The repository-only [survival suite](survival.md) calls Atlas source APIs with Node 24 and the root locked Ajv, without installing Atlas or its consumer dependency. It is not a published npm API and the submodule is excluded from the Foundry package.
 
 ## Other consumers
 
