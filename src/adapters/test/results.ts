@@ -3,8 +3,12 @@ import path from 'node:path';
 import sax from 'sax';
 import type { SuiteConfig } from '../../core/types.js';
 import type { SuiteReport, TestCase } from '../../reporting/types.js';
+import { validateCaseDetails } from '../../reporting/result-details.js';
 
 const statuses = new Set(['passed', 'failed', 'unsupported', 'skipped', 'infrastructure-error']);
+const evidencePath = /^(?!\/)(?![A-Za-z]:)(?!.*(?:^|\/)\.\.(?:\/|$))[^\\\u0000-\u001f\u007f]+\.json$/;
+const pointer = /^(?:\/(?:[^~\u0000-\u001f\u007f]|~[01])*)*$/;
+const invalidUnicode = /[\uD800-\uDFFF\ufffe\uffff]/u;
 export async function parseResults(file: string): Promise<TestCase[]> {
   const input = await readFile(file, 'utf8');
   if (path.extname(file) !== '.xml') {
@@ -12,14 +16,20 @@ export async function parseResults(file: string): Promise<TestCase[]> {
     if (result.schemaVersion !== 1 || !Array.isArray(result.cases)) throw new Error('Test results require schemaVersion:1 and cases array');
     for (const test of result.cases) {
       if (!test || typeof test.id !== 'string' || !test.id || !statuses.has(test.status)) throw new Error('Invalid test case ID/status');
-      if (Object.keys(test).some(key => !['id', 'status', 'message', 'durationMs', 'attempts'].includes(key))) throw new Error('Unknown test case property');
+      if (Object.keys(test).some(key => !['id', 'status', 'message', 'durationMs', 'attempts', 'detail', 'diagnostics'].includes(key))) throw new Error('Unknown test case property');
       if (test.message !== undefined && typeof test.message !== 'string') throw new Error('Invalid test case message');
+      if (test.detail !== undefined && (!test.detail || typeof test.detail.file !== 'string' || test.detail.file.length > 1024 || invalidUnicode.test(test.detail.file) || !evidencePath.test(test.detail.file) || typeof test.detail.pointer !== 'string' || test.detail.pointer.length > 256 || invalidUnicode.test(test.detail.pointer) || !pointer.test(test.detail.pointer) || Object.keys(test.detail).some(key => !['file', 'pointer'].includes(key)))) throw new Error('Invalid test case detail reference');
+      if (test.diagnostics !== undefined) {
+        const d = test.diagnostics;
+        if (!d || d.schemaVersion !== 1 || !d.counts || Object.keys(d).some(key => !['schemaVersion', 'counts'].includes(key)) || Object.keys(d.counts).length !== 3 || !['incomplete', 'unknown', 'stopReasons'].every(key => Number.isSafeInteger(d.counts[key as keyof typeof d.counts]) && d.counts[key as keyof typeof d.counts] >= 0)) throw new Error('Invalid test case diagnostics');
+      }
       if (test.durationMs !== undefined && (typeof test.durationMs !== 'number' || !Number.isFinite(test.durationMs) || test.durationMs < 0)) throw new Error('Invalid test case duration');
       if (test.attempts !== undefined && (!Array.isArray(test.attempts) || test.attempts.some(attempt => !attempt || !statuses.has(attempt.status) || attempt.message !== undefined && typeof attempt.message !== 'string' || Object.keys(attempt).some(key => !['status', 'message'].includes(key))))) throw new Error('Invalid test attempt metadata');
       if (test.attempts?.some(attempt => attempt.status !== 'passed') && test.status === 'passed') {
         test.status = 'failed'; test.message = 'Retry passed after an earlier failure; this case is not a stable pass';
       }
     }
+    await validateCaseDetails(result.cases, path.dirname(file));
     return result.cases;
   }
   const cases: TestCase[] = [];

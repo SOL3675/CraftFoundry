@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { Ajv } from 'ajv';
+import { summarizeText } from '../../src/reporting/summary.ts';
 
 /** @typedef {import('../../projects/craft-atlas/packages/core/src/types.ts').Snapshot} Snapshot */
 /** @typedef {import('../../projects/craft-atlas/packages/core/src/types.ts').Scenario} Scenario */
@@ -14,6 +15,7 @@ import { Ajv } from 'ajv';
 
 export const externalKinds = ['loot', 'drops', 'harvesting', 'worldgen', 'trades', 'other'];
 export const supportedTargets = ['fabric:1.21.1', 'neoforge:1.21.1', 'fabric:1.20.1', 'forge:1.20.1'];
+export const survivalSummaryLimit = 1800;
 const ajv = new Ajv({ allErrors: true, strict: false });
 const check = ajv.compile(JSON.parse(readFileSync(new URL('../../schemas/atlas-survival.schema.json', import.meta.url), 'utf8')));
 
@@ -129,10 +131,13 @@ export function evaluateSurvival(atlas, snapshot, input, selection = {}, packs =
     const analysis = atlas.analyze(model, caseScenario, c.item);
     const status = incomplete.length || analysis.status === 'unknown' ? 'unsupported' : analysis.status === c.expected ? 'passed' : 'failed';
     const providerEvidence = config.providers.filter(p => p.availability === 'available' && !c.without?.includes(p.resource) && analysis.path.includes(p.resource));
-    return { ...c, status, analysis, providerEvidence, incomplete };
+    return { ...c, status, analysis, providerEvidence, incompleteRef: '#/incomplete' };
   });
-  const results = { schemaVersion: 1, cases: details.map(c => ({ id: c.id, status: c.status, message: `${c.item}: expected ${c.expected}, Atlas ${c.analysis.status}; ${[...c.incomplete, ...c.analysis.unknown, ...c.analysis.stopReasons.map(r => r.message)].join('; ')}` })) };
-  return { results, evidence: { schemaVersion: 1, snapshotId: snapshot.id, snapshotHash: atlas.hash(snapshot), modelHash: model.contentHash, normalizerVersion: model.normalizerVersion, definitions: packs.map(pack => ({ id: pack.id, version: pack.version, hash: atlas.hash(pack) })), originalCoverage: originalModel.coverage, coverage: model.coverage, development, definitionDiagnostics: model.diagnostics.filter(d => d.rule.startsWith('definition-')),
+  const results = { schemaVersion: 1, cases: details.map(c => ({ id: c.id, status: c.status,
+    message: survivalSummary(c, incomplete),
+    diagnostics: { schemaVersion: 1, counts: { incomplete: incomplete.length, unknown: c.analysis.unknown.length, stopReasons: c.analysis.stopReasons.length } },
+  })) };
+  return { results, evidence: { schemaVersion: 2, diagnosticContractVersion: 1, incomplete, snapshotId: snapshot.id, snapshotHash: atlas.hash(snapshot), modelHash: model.contentHash, normalizerVersion: model.normalizerVersion, definitions: packs.map(pack => ({ id: pack.id, version: pack.version, hash: atlas.hash(pack) })), originalCoverage: originalModel.coverage, coverage: model.coverage, development, definitionDiagnostics: model.diagnostics.filter(d => d.rule.startsWith('definition-')),
     datapack: model.datapack ?? null,
     recipes: snapshot.recipes,
     viewer: snapshot.viewer ?? null,
@@ -142,6 +147,23 @@ export function evaluateSurvival(atlas, snapshot, input, selection = {}, packs =
     resourceDiagnostics: model.diagnostics.filter(d => d.rule.startsWith('datapack-') || d.rule === 'recipe-resource-missing'),
     definitionProcesses: model.processes.filter(p => p.evidence.some(e => e.startsWith('definition:'))),
     configHash: atlas.hash(config), scenario, externalSources: config.externalSources, details, limitations: [...new Set(details.flatMap(c => c.analysis.limitations))] } };
+}
+
+/** @param {{item:string,expected:string,status:string,analysis:Analysis}} detail
+ * @param {string[]} incomplete
+ */
+function survivalSummary(detail, incomplete) {
+  const { analysis } = detail;
+  // First two records in evidence order: no locale-dependent sorting or giant joins.
+  const examples = (/** @type {string} */ label, /** @type {string[]} */ reasons) => {
+    const shown = reasons.slice(0, 2).map(reason => summarizeText(reason, 160));
+    return `${label}=${reasons.length}${shown.length ? ` [${shown.join(' | ')}]` : ''}; omitted=${Math.max(0, reasons.length - shown.length)}`;
+  };
+  const stops = analysis.stopReasons.slice(0, 2).map(r => `${summarizeText(r.kind, 40)} ${summarizeText(r.target, 80)}: ${summarizeText(r.message, 160)}`);
+  const action = detail.status === 'unsupported' ? 'Review incomplete coverage and unknowns in detail; repair capture or review definitions/providers and regression cases.'
+    : detail.status === 'failed' ? 'Inspect blocked prerequisites and expected acquisition in detail; review definitions/providers and rerun this case.'
+      : 'Review the saved route and assumptions before using this result as acquisition evidence.';
+  return summarizeText(`${summarizeText(detail.item, 120)}: expected ${detail.expected}, Atlas ${analysis.status}; ${examples('incomplete', incomplete)}; ${examples('unknown', analysis.unknown)}; stopReasons=${analysis.stopReasons.length}${stops.length ? ` [${stops.join(' | ')}]` : ''}; omitted=${Math.max(0, analysis.stopReasons.length - stops.length)}; Next: ${action}`, survivalSummaryLimit);
 }
 
 /** Explicit opt-in pack paths are relative to the suite, never auto-discovered from code.

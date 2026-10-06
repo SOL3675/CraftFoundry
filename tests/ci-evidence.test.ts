@@ -26,3 +26,16 @@ test('CI retains session failure logs without a final report and excludes worlds
   assert.equal(await readFile(path.join(root, '.harness/ci/evidence/runs/truncated-run/sessions/target/client/failure.log'), 'utf8'), 'Retain crash even when report write was interrupted');
   assert.equal(await readFile(new URL('../.github/scripts/collect-fixture-evidence.mjs', import.meta.url), 'utf8'), await readFile(new URL('../templates/ci/scripts/collect-fixture-evidence.mjs', import.meta.url), 'utf8'));
 });
+
+test('CI copies declared JSON details outside sessions and explicitly fails if a companion disappears', async t => {
+  const root = await mkdtemp(path.join(tmpdir(), 'mch-ci-details-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const run = path.join(root, '.harness/runs/detail-run'); await mkdir(run, { recursive: true });
+  const full = JSON.stringify({ reason: 'Complete detail 日本語🌋 <&> '.repeat(100000) });
+  await writeFile(path.join(run, 'detail.json'), full);
+  await writeFile(path.join(run, 'report.json'), JSON.stringify({ targets: [{ suites: [{ cases: [{ id: 'case', status: 'failed', detail: { file: 'detail.json', pointer: '/reason' } }] }] }] }));
+  await collectFixtureEvidence(root);
+  assert.equal(await readFile(path.join(root, '.harness/ci/evidence/runs/detail-run/detail.json'), 'utf8'), full);
+  await rm(path.join(run, 'detail.json'));
+  await assert.rejects(collectFixtureEvidence(root), { code: 'ENOENT' });
+});

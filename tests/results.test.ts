@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { parseResults, evaluateSuite } from '../dist/adapters/test/results.js';
@@ -65,6 +65,36 @@ test('malformed case metadata and attempt histories cannot become successful typ
     const value = { schemaVersion: 1, cases: [{ id: 'fixture', status: 'passed', ...metadata }] };
     await assert.rejects(parseResults(await resultFile(t, JSON.stringify(value))), /Invalid|attempt|duration|message/i);
   }
+});
+
+test('diagnostic counts and detail references are optional structured versioned metadata, rejecting malformed input', async t => {
+  const diagnostics = { schemaVersion: 1, counts: { incomplete: 10000, unknown: 1, stopReasons: 2 } };
+  const detail = { file: 'details/日本語 reason.json', pointer: '/details/0' };
+  const cases = [{ id: 'survival.item', status: 'unsupported', message: 'summary', diagnostics, detail }];
+  const file = await resultFile(t, JSON.stringify({ schemaVersion: 1, cases }));
+  await mkdir(path.join(path.dirname(file), 'details'));
+  const stop = { kind: 'constraints', target: 'item', process: 'recipe', message: 'Blocked prerequisite', evidence: ['raw:recipe'] };
+  await writeFile(path.join(path.dirname(file), detail.file), JSON.stringify({ schemaVersion: 2, diagnosticContractVersion: 1, incomplete: Array(10000).fill('Incomplete capture'), details: [{ incompleteRef: '#/incomplete', analysis: { unknown: ['Unknown hook'], stopReasons: [stop, stop] } }] }));
+  assert.deepEqual(await parseResults(file), cases);
+  for (const metadata of [
+    { detail: { ...detail, file: '../outside.json' } }, { detail: { ...detail, file: 'C:/outside.json' } },
+    { detail: { ...detail, file: '/outside.json' } }, { detail: { ...detail, file: 'details\\outside.json' } },
+    { detail: { ...detail, pointer: '/bad~2' } }, { detail: { ...detail, pointer: 'details/0' } },
+    { detail: { ...detail, file: 'detail.bin' } }, { detail: { ...detail, file: 'detail\n.json' } },
+    { detail: { ...detail, file: 'detail\ud800.json' } }, { detail: { ...detail, pointer: '/bad\nkey' } },
+    { diagnostics: { ...diagnostics, schemaVersion: 2 } }, { diagnostics: { schemaVersion: 1, counts: { unknown: 1 } } },
+    { diagnostics: { ...diagnostics, counts: { ...diagnostics.counts, unknown: -1 } } },
+    { diagnostics: { ...diagnostics, counts: { ...diagnostics.counts, unknown: 'giant' } } },
+  ]) await assert.rejects(parseResults(await resultFile(t, JSON.stringify({ schemaVersion: 1, cases: [{ ...cases[0], ...metadata }] }))), /Invalid/);
+});
+
+test('the results reader refuses missing companions, unresolved pointers and absent detail references', async t => {
+  const file = await resultFile(t, JSON.stringify({ schemaVersion: 1, cases: [{ id: 'case', status: 'passed', detail: { file: 'missing.json', pointer: '/details/0' } }] }));
+  await assert.rejects(parseResults(file), { code: 'ENOENT' });
+  await writeFile(path.join(path.dirname(file), 'missing.json'), '{}');
+  await assert.rejects(parseResults(file), /pointer/);
+  await writeFile(file, JSON.stringify({ schemaVersion: 1, cases: [{ id: 'case', status: 'passed', diagnostics: { schemaVersion: 1, counts: { incomplete: 0, unknown: 0, stopReasons: 0 } } }] }));
+  await assert.rejects(parseResults(file), /require.*detail/);
 });
 
 test('JUnit imports stable IDs, durations, assertions, infrastructure errors and skipped cases', async (t) => {

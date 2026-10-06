@@ -12,6 +12,7 @@ import { runClientSmoke, runFixtureMultiplayer, runFixtureMultiClient, fixtureCa
 import { createRun, saveReport } from '../reporting/report.js';
 import { clientDisplayEnvironment } from '../platform/display.js';
 import type { CaseStatus, RunReport, SuiteReport, TargetReport } from '../reporting/types.js';
+import { retainResultDetails } from '../reporting/result-details.js';
 
 export interface RunOptions { command: 'build' | 'inspect' | 'test'; targets: string[]; suites?: string[]; profile?: 'release'; signal?: AbortSignal }
 function processStatus(process: ProcessResult): CaseStatus {
@@ -167,6 +168,7 @@ async function executeSuite(loaded: LoadedConfig, adapter: GradleBuildAdapter, t
     if (path.isAbsolute(rel) || rel === '..' || rel.startsWith(`..${path.sep}`)) throw new Error('Test results escaped root');
     if (suite.driver === 'gradle') base.logs.push(relative(directory, parseFile));
     const cases = (await parseResults(parseFile)).map(test => ({ ...test, id: target.caseAliases?.[test.id] ?? test.id }));
-    return { ...evaluateSuite(suiteId, suite, cases, required), logs: base.logs };
+    base.evidence = await retainResultDetails(cases, parseFile, directory);
+    return { ...evaluateSuite(suiteId, suite, cases, required), logs: base.logs, evidence: base.evidence };
   } catch (error) { return { ...base, error: (error as Error).message }; }
 }

@@ -44,7 +44,7 @@ test('missing custom mapping, tests, unknown Java hook and unsupported serialize
     const r = evaluateSurvival(atlas, fixture(), c, {}, definitions);
     assert.ok(r.results.cases.every(c => c.status === 'unsupported'), variant);
     assert.ok(r.evidence.development.length, variant);
-    assert.ok(r.evidence.details[0]!.incomplete.some(reason => /definition|tests|regression|mapping|mechanisms|absent|hook|serializer/.test(reason)), variant);
+    assert.ok(r.evidence.incomplete.some(reason => /definition|tests|regression|mapping|mechanisms|absent|hook|serializer/.test(reason)), variant);
   }
 });
 test('duplicates, mismatched versions, unresolved tags/resources and conflicts never pass', () => {
