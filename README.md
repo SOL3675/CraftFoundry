@@ -2,28 +2,20 @@
 
 [日本語](README.ja.md)
 
-CraftFoundry is a Minecraft Java Edition build and validation harness for developers, agents, and CI. The npm package is `craft-foundry`; its CLI is `mch`. It uses each project's Gradle Wrapper and records explicit artifacts, test results, and evidence.
+CraftFoundry builds and validates Minecraft Java Edition Mods through one CLI for developers, agents and CI. Its npm package is `craft-foundry`; the CLI is `mch`. It uses your project's Gradle Wrapper and records distribution hashes, test results and evidence.
 
-## Develop
+## Install and connect a project
 
-Use Node.js 24 (CI: 24.19.0) and npm (package generation: 11.9.0). From this repository:
+Use Node.js 24. The package is unpublished and `private: true`; install an exact local tarball following [distribution and updates](docs/distribution.md). Connect existing Gradle tasks and explicit artifact paths using [configuration](docs/configuration.md), [existing-project](templates/existing-project/README.md) or [multiloader](templates/multiloader/README.md). Keep Minecraft, loader and dependencies pinned in Gradle, and machine Java homes/tools/EULA state in ignored `harness.local.json`.
 
-```console
-npm ci --ignore-scripts
-npm run check
-npm pack
-node dist/cli/main.js --help
-```
+| Target | Gradle / compile / game Java |
+| --- | --- |
+| NeoForge 1.21.1 | 21 / 21 / 21 |
+| Fabric 1.21.1 | 21 / 21 / 21 |
+| Forge 1.20.1 | 17 / 17 / 17 |
+| Fabric 1.20.1 | 21 / 17 / 17 |
 
-`npm run check` checks TypeScript and harness contracts. These tests use dummy runtimes and do not establish real Minecraft support. Generated `dist/`, tarballs, and `.harness/` are ignored.
-
-CraftAtlas is an independent pinned submodule at `projects/craft-atlas`. The repository-only [survival acquisition suite](docs/survival.md) uses its real data/analysis APIs, with reproducible offline cases and explicit unknown external sources. Initialize the submodule, then run `npm run check:atlas` and `npm run test:atlas`. Current common scope: Fabric/NeoForge Minecraft 1.21.1.
-
-## Use
-
-The package is unpublished and remains `private: true`. See [distribution and development](docs/distribution.md) for local packages and the independent [CraftAtlas repository](https://github.com/SOL3675/CraftAtlas). No registry publication is required.
-
-Connect a Gradle project using [configuration](docs/configuration.md), the [existing-project example](templates/existing-project/README.md), or the [multiloader example](templates/multiloader/README.md). Configure machine-specific Java homes and tools in ignored `harness.local.json`.
+These are the configured fixture targets; see [support and constraints](docs/support.md) for exact pins and validation limits. Other combinations are not inferred.
 
 ```console
 mch doctor --json
@@ -35,16 +27,19 @@ mch test --all --profile release --json
 mch report --run <run-id> --json
 ```
 
-Reports and JUnit output live in `.harness/runs/<run-id>/`. Exit codes are 0 for success, 1 for failed validation, and 2 for configuration or environment errors. JSON mode emits one object to stdout and progress to stderr. Required unsupported, skipped, or zero-detected tests cannot pass a release gate.
+Reports and JUnit are saved under `.harness/runs/<run-id>/`. Exit codes are success `0`, validation failure `1`, and configuration/environment error `2`. JSON mode emits one stdout object and progress to stderr. Required unsupported, skipped, unstable or zero-detected cases cannot pass a release gate.
 
-See [tools](docs/tools.md), [Skills](docs/skills.md), [Linux setup](docs/linux.md), [CI](docs/ci.md), and [support constraints](docs/support.md).
+Install bundled agent Skills with `mch skills install --destination .agents/skills --json`; the installer preserves user edits. Install the fixed client backend with `mch tools install mc-pilot --project <directory> --json` and configure its returned path locally. See [Skills](docs/skills.md), [tools](docs/tools.md), [Linux](docs/linux.md) and [CI](docs/ci.md).
 
-## Per-Mod acquisition definitions
+## Review acquisition changes
 
-Use the [acquisition definition template](templates/acquisition/README.md) to describe version-scoped per-Mod definitions and regression cases for custom serializers, machines, and other ways to obtain items. The [survival development checks](docs/survival.md#per-mod-acquisition-definitions-and-development-checks) explicitly report unsupported or undeclared mechanisms and missing inputs. Normal validation and Windows/Ubuntu CI use the pinned Atlas without a local source override. Use `--atlas-source` for explicit local validation of upcoming Atlas changes. Java hook semantics are not inferred and remain unknown.
+The [acquisition template](templates/acquisition/README.md) helps review custom serializers, machines and other item sources against current [CraftAtlas](https://github.com/SOL3675/CraftAtlas) captures. The repository-only [survival suite](docs/survival.md) supports NeoForge/Fabric 1.21.1 and Forge/Fabric 1.20.1; the npm package ships guidance and templates, while the runner requires the Foundry repository and its pinned Atlas submodule.
 
-Inspect active-server datapack evidence and runtime entries before authoring definitions: effective JSON, byte hashes, source pack IDs and visible override stacks are preserved in acquisition evidence. Raw resources alone do not establish executable routes or closed coverage; source-only and custom API paths require explicit review. The template documents the supported `atlas datapack` queries and optional custom-directory capture.
+Review effective datapack JSON, source pack IDs, byte hashes and override stacks before writing exact-version definitions. Use `recipe` paths for 1.21.1 and `recipes` for 1.20.1. Raw data, JEI/EMI display entries and finite loot/block/entity/world observations are evidence, not proof of execution, exhaustive absence, sustainable supply or progression. Unknown hooks and incomplete coverage remain unknown/unsupported; Forge fluid runtime behavior remains unverified.
+
+Harness source development, test fixtures and package production are documented in [development and distribution](docs/distribution.md).
 
 ## License
+
 
 Original CraftFoundry code and documentation are licensed under [MIT](LICENSE), copyright (c) 2026 SOL3675. Files with separate license or copyright notices retain those terms and notices, including the fixture MIT licenses and Gradle Wrapper's Apache-2.0 headers and bundled notices. Dependencies, downloaded tools, Minecraft, and other Mods retain their own licenses. The npm package includes LICENSE and the existing fixture/Gradle notices; fixture binary and source JARs include their existing MIT license in `META-INF/LICENSE`.

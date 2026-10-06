@@ -2,7 +2,18 @@
 
 This repository-only suite uses the pinned `projects/craft-atlas` submodule's actual snapshot reader, schema validator, normalizer, and reachability analyzer. It accepts an Atlas snapshot JSON or completed capture directory, including checksum/session/generation checks. It does not install Atlas, call its CLI's success exit an acquisition pass, or claim game validation from offline data. Root npm install/build/pack stays independent; the tool and submodule are not part of the npm consumer API.
 
-The current common scope is **Minecraft 1.21.1 with Fabric or NeoForge**. Foundry's 1.20.1 and Forge targets, other Minecraft versions, and unsupported recipe adapters remain unsupported here. Expanding Atlas's game support is a later task. A saved capture must match the configured Minecraft/loader and the active harness target (including its declared loader version). Normalization uses Atlas's exact adapter/mod-version support and retains unsupported data.
+The common scope is **Fabric/NeoForge 1.21.1 and Forge/Fabric 1.20.1**, selected by exact Minecraft/loader pairs. Other combinations and unsupported recipe adapters remain unsupported. A saved capture must match the configured Minecraft/loader and the active harness target (including its declared loader version). Normalization uses Atlas's exact adapter/mod-version support and retains unsupported data.
+
+| Target | Loader | Gradle / compile / game Java | Recipe resource path | Viewer | Finite commands |
+| --- | --- | --- | --- | --- | --- |
+| NeoForge 1.21.1 | 21.1.252 | 21 / 21 / 21 | `recipe` | JEI | loot/block/entity/world |
+| Fabric 1.21.1 | 0.16.14 | 21 / 21 / 21 | `recipe` | EMI | unsupported |
+| Forge 1.20.1 | 47.3.0 | 17 / 17 / 17 | `recipes` | JEI 15 | loot/block/entity/world |
+| Fabric 1.20.1 | 0.16.14 | 21 / 17 / 17 | `recipes` | EMI | loot/block/entity/world |
+
+Command registration coverage and finite-sample coverage are separate. Completed finite loot/block/entity/world observations on both 1.20.1 loaders retain seeds, player/luck, tool NBT, damage context and chunk/height bounds. They remain partial samples, never exhaustive absence, sustainable supply or survival progression proofs. Block/entity sampling does not execute real break/death events; unknown arbitrary hooks and incomplete contexts remain unknown. Fabric 1.21.1's observation limitation is unchanged. Forge fluid runtime behavior remains unverified: PR #6's JEI test pack had no fluid slots.
+
+Results retain raw `recipes` (including 1.20.1 network bytes and hashes), `viewer`, `world`, normalized `observationProcesses` and `sourceEvidence`, alongside datapack provenance and original/effective coverage. A finite observation cannot close the scenario even if its finite-coverage row is missing or claims complete. Stale observation session/generation/environment or a mismatched 1.20.1 target is rejected. Network bytes are provenance, not a JSON interpretation or a reviewed execution route; serialization errors and missing semantic records continue to block a pass. Viewer quantities and backing IDs do not establish execution or probability.
 
 ## Active datapack authoring evidence
 
@@ -44,7 +55,7 @@ Within complete data, Atlas uses a qualitative least fixed point: all input slot
 
 ## Connect the existing harness process driver
 
-Add a suite/runtime to the consuming Mod's `harness.config.json` and add `survival-acquisition` to the appropriate 1.21.1 Fabric/NeoForge target's `requiredSuites`. Use your actual Foundry checkout path in the runtime argument; the executable receives each argument separately, including Windows paths with spaces. Configuration paths belong to that Mod project; result paths belong to the isolated session:
+Add a suite/runtime to the consuming Mod's `harness.config.json` and add `survival-acquisition` to the appropriate supported target's `requiredSuites`. Use your actual Foundry checkout path in the runtime argument; the executable receives each argument separately, including Windows paths with spaces. Configuration paths belong to that Mod project; result paths belong to the isolated session:
 
 ```json
 {
@@ -75,7 +86,7 @@ mch test --target neoforge-1.21.1 --suite survival-acquisition --json
 
 ## Private submodule CI
 
-[Atlas survival CI](../.github/workflows/atlas.yml) verifies the exact gitlink, initializes a real submodule and runs both common loaders' offline contracts on Windows/Ubuntu. Ordinary [Foundry contracts](../.github/workflows/contracts.yml) remain independent of Atlas access. Missing private access fails the Atlas job explicitly, never skips it into green status.
+[Atlas survival CI](../.github/workflows/atlas.yml) verifies the exact gitlink, initializes a real submodule and runs all four targets' offline contracts on Windows/Ubuntu. Ordinary [Foundry contracts](../.github/workflows/contracts.yml) remain independent of Atlas access. Missing private access fails the Atlas job explicitly, never skips it into green status.
 
 The default Foundry `GITHUB_TOKEN` does not grant read access to another private repository. If no existing runner access is available, a user must supply **Foundry's** repository Actions secret `CRAFTATLAS_READ_TOKEN` using an authorized fine-grained token limited to **SOL3675/CraftAtlas**, **Contents: read** and automatic metadata read. No write, workflow administration or extra repository permissions are needed. Register it at Foundry Settings → Secrets and variables → Actions → Repository secrets, then rerun the failed workflow for the same SHA. Atlas's `CRAFTFOUNDRY_READ_TOKEN` is the reverse direction and cannot substitute. Do not copy cloud credentials or expose secrets to fork PRs.
 
@@ -101,6 +112,34 @@ npm run test:atlas:definitions
 node scripts/atlas-survival.mjs --config tests/atlas-definitions/fixtures/suite.json --results .harness/custom/results.json
 ```
 
-`--atlas-source` is a development override only and is recorded with the full clean checkout commit in evidence. Without it the CLI still verifies a clean checkout at the exact recorded gitlink. New definition suites fail explicitly against the older pin; ordinary survival suites remain compatible. Root install/build/pack still does not install or ship Atlas.
+`--atlas-source` is a development override only and is recorded with the full clean checkout commit in evidence. Without it the CLI still verifies a clean checkout at the exact recorded gitlink. Definition suites require contract v2; the merged pin supplies it for all four targets. Root install/build/pack still does not install or ship Atlas.
 
-The Windows/Ubuntu Atlas integration CI runs all three integration checks and both representative suites through the default pinned path. Definition regressions exercise datapack overrides, unknown serializers, source-only/script-removed and runtime-only paths, explicit execution review and raw provenance for both loaders. For future definition contract updates, publish the reviewed Atlas commit first, update Foundry's gitlink to its final reachable SHA, then deliver Foundry. Re-run all three Atlas integration checks without the source override after each pin update. If Atlas is squash-merged, use the resulting remote SHA. Keep Atlas's independent Foundry package pin and lockfile unchanged. Publishing, PR changes and pin delivery require separate user authorization.
+The Windows/Ubuntu Atlas integration CI runs all three integration checks and both representative suites through the default pinned path. Definition regressions exercise datapack overrides, unknown serializers, source-only/script-removed and runtime-only paths, explicit execution review and raw provenance for all four targets. For future definition contract updates, publish the reviewed Atlas commit first, update Foundry's gitlink to its final reachable SHA, then deliver Foundry. Re-run all three Atlas integration checks without the source override after each pin update. If Atlas is squash-merged, use the resulting remote SHA. Keep Atlas's independent Foundry package pin and lockfile unchanged. Publishing, PR changes and pin delivery require separate user authorization.
+
+## Validate a new Foundry package locally
+
+The Atlas pin is the reviewed remote merge of PR #6 (`817de1959b23c5dad8a250e7be56afcf64c68717`). Its recorded real-game run used implementation `5e2a7219d30a4e4fa0dd297cc2b1df6304a3b47e`: 15 required suites / 50 cases and 120 offline tests. That evidence validates Atlas with its independently pinned Foundry 0.1.5 (`21a7a3d4984eaa154b1c5a8b8d0a2756dfee05c6`); it does not validate a newer Foundry package. Keep the Atlas source pin and lockfile unchanged in this repository.
+
+On a local validation machine, first restore the committed Foundry candidate and its actual gitlink, then run `npm ci --ignore-scripts`, all three Atlas integration checks above, `npm run check` and `npm pack`. Use a separate disposable checkout of Atlas at that exact merged SHA for candidate package validation. Bootstrap/install its original immutable dependency first, then copy the candidate tarball into its ignored `.harness/vendor/` and run `pnpm add -D craft-foundry@file:./.harness/vendor/craft-foundry-0.1.6.tgz --ignore-scripts` there. This explicit disposable consumer overlay changes only that checkout's manifest/lock; do not update the canonical Atlas source pin, commit the overlay or rerun bootstrap over the candidate. Record candidate Foundry commit, package SHA-256, the consumer overlay and original dependency identity with the Run.
+
+Use actual absolute `java17` and `java21` homes, existing EULA acceptance, mc-pilot 0.15.0 and the verified locked tools in ignored local configuration. Follow Atlas's [development procedures](https://github.com/SOL3675/CraftAtlas/blob/main/docs/development.md#forge-and-fabric-1201-validation), including the 1.21.1 pack-fetch prerequisites. Run:
+
+```console
+pnpm check
+pnpm test
+pnpm build
+pnpm exec mch doctor --json
+pnpm exec mch inspect --target forge-1.20.1 --json
+pnpm exec mch build --target forge-1.20.1 --json
+pnpm exec mch inspect --target fabric-1.20.1 --json
+pnpm exec mch build --target fabric-1.20.1 --json
+pnpm exec mch inspect --target neoforge-1.21.1 --json
+pnpm exec mch build --target neoforge-1.21.1 --json
+pnpm exec mch inspect --target fabric-1.21.1 --json
+pnpm exec mch build --target fabric-1.21.1 --json
+pnpm exec mch test --all --profile release --json
+```
+
+Require all 15 suites / 50 cases, including each 1.20.1 seven-case world suite and its integrated JEI/EMI checks. Repeat both 1.20.1 viewer suites with `CRAFTATLAS_OBSERVATION_PERMISSION=denied` in newly created disposable worlds, following Atlas's permission procedure. Verify denied commands attach zero observations; normal runs verify actual player UUID/luck, tool NBT, damage context, matching fresh generation and unchanged inventory/block/entity state. Preserve raw captures, manifests/completion, current distribution/dependency hashes, logs and failed attempts. A prior Atlas pass cannot substitute for these candidate runs.
+
+Finally collect a completed capture from the consuming Mod's actual candidate-built distribution and invoke this Foundry checkout's `atlas-survival.mjs` through its required process suite. Finite/unknown coverage must produce unsupported required cases; do not prune raw observations or incomplete datasets to force a green survival result. Rerun Foundry's own four-target fixture release profile for harness runtime changes. Missing Java/display/backend/access remains a validation blocker; an offline pass establishes only saved-data contracts.

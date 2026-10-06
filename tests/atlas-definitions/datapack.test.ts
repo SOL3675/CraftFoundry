@@ -7,18 +7,19 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { loadAtlas, loadDefinitions, evaluateSurvival, validateConfig } from '../../scripts/lib/atlas-survival.mjs';
+import { targets, targetFixture, type Target } from '../atlas/fixtures/targets.ts';
 import type { DatapackVariant, Json } from '../../projects/craft-atlas/packages/core/src/types.ts';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const source = process.env.CRAFTATLAS_DEFINITION_SOURCE ?? resolve(root, 'projects/craft-atlas');
 const atlas = await loadAtlas(root, source);
 const suite = resolve(root, 'tests/atlas-definitions/fixtures/suite.json');
-function fixture(loader = 'neoforge') {
+function fixture(target: Target = targets[0]) {
   const config = validateConfig(JSON.parse(readFileSync(suite, 'utf8')));
   const snapshot = atlas.readSnapshot(resolve(root, 'tests/atlas-definitions/fixtures/snapshot.json'));
   const packs = loadDefinitions(atlas, config, suite);
-  snapshot.loader = config.target.loader = packs[0]!.targets.loader = loader;
-  snapshot.loaderVersion = loader === 'fabric' ? '0.16.14' : '21.1.252';
+  targetFixture(snapshot, target, packs);
+  Object.assign(config.target, { minecraft: target.minecraft, loader: target.loader });
   return { config, snapshot, packs, run: () => evaluateSurvival(atlas, snapshot, config, {}, packs) };
 }
 function variant(source: string, data: Json): DatapackVariant {
@@ -31,18 +32,19 @@ function raw(f: ReturnType<typeof fixture>, name: string, data: Json) {
   f.snapshot.coverage.find(c => c.dataset === 'datapack')!.enumerated!++;
 }
 
-for (const loader of ['fabric', 'neoforge']) {
+for (const target of targets) {
+  const loader = target.id, directory = target.minecraft === '1.20.1' ? 'recipes' : 'recipe';
   test(`${loader}: effective resource and override provenance survive reviewed definitions and without-input regressions`, () => {
-    const f = fixture(loader), r = f.run();
+    const f = fixture(target), r = f.run();
     assert.ok(r.results.cases.every(c => c.status === 'passed'), JSON.stringify(r.results));
     assert.deepEqual(r.evidence.datapack, f.snapshot.datapack);
     const p = r.evidence.definitionProcesses.find(p => p.id === 'survival:press')!;
-    assert.deepEqual(p.raw, f.snapshot.recipes.at(-1)!.data, 'runtime codec data stays authoritative');
+    assert.deepEqual(p.raw, f.snapshot.recipes.at(-1)!.serialization ? { data: f.snapshot.recipes.at(-1)!.data, serialization: f.snapshot.recipes.at(-1)!.serialization } : f.snapshot.recipes.at(-1)!.data, 'runtime codec data stays authoritative');
     assert.ok(p.evidence.includes('datapack:survival:press'));
     assert.equal(p.fieldHistory!.interpretation![0]!.value, 'opaque');
     assert.deepEqual(r.evidence.coverage.find(c => c.dataset === 'datapack'), r.evidence.originalCoverage.find(c => c.dataset === 'datapack'));
     const before = r.evidence.modelHash;
-    const resource = f.snapshot.datapack!.resources.find(r => r.id === 'survival:recipe/press.json')!;
+    const resource = f.snapshot.datapack!.resources.find(r => r.id === `survival:${directory}/press.json`)!;
     resource.stack[0] = variant('mod/survival', { type: 'survival:unknown_old', arbitrary: 'shadowed' });
     const after = f.run();
     assert.notEqual(after.evidence.modelHash, before, 'shadowed evidence contributes to identity');
@@ -51,7 +53,7 @@ for (const loader of ['fabric', 'neoforge']) {
   });
 
   test(`${loader}: source-only custom recipe requires explicit execution review, preserving raw/history`, () => {
-    const f = fixture(loader);
+    const f = fixture(target);
     f.snapshot.recipes = f.snapshot.recipes.filter(r => r.id !== 'survival:press');
     f.snapshot.coverage.find(c => c.dataset === 'recipes')!.enumerated!--;
     delete f.packs[0]!.operations[0]!.patch.execution;
@@ -63,15 +65,15 @@ for (const loader of ['fabric', 'neoforge']) {
     const reviewed = f.run(), p = reviewed.evidence.definitionProcesses.find(p => p.id === 'survival:press')!;
     assert.ok(reviewed.results.cases.every(c => c.status === 'passed'), JSON.stringify(reviewed.results));
     assert.equal(p.fieldHistory!.execution![0]!.value, 'unconfirmed');
-    assert.deepEqual(p.raw, f.snapshot.datapack!.resources.find(r => r.id === 'survival:recipe/press.json')!.effective.data);
+    assert.deepEqual(p.raw, f.snapshot.datapack!.resources.find(r => r.id === `survival:${directory}/press.json`)!.effective.data);
     assert.ok(reviewed.evidence.details.find(c => c.id === 'custom.press_missing_input')!.analysis.status === 'unreachable');
     f.config.scenario.gameRules = {};
     assert.equal(f.run().results.cases.find(c => c.id === 'custom.press')!.status, 'unsupported', 'unknown power remains unknown');
   });
 
   for (const type of ['survival:unknown_serializer', 'minecraft:crafting_shapeless']) test(`${loader}: unknown/script-removed source-only ${type} cannot create outputs or close coverage`, () => {
-    const f = fixture(loader);
-    raw(f, 'recipe/script_removed', { type, ingredients: [{ item: 'survival:seed' }], result: { id: 'survival:no_source' } });
+    const f = fixture(target);
+    raw(f, `${directory}/script_removed`, { type, ingredients: [{ item: 'survival:seed' }], result: { id: 'survival:no_source' } });
     const p = atlas.normalize(f.snapshot).processes.find(p => p.id === 'survival:script_removed')!;
     assert.equal(p.interpretation, 'opaque'); assert.equal(p.execution, 'unconfirmed');
     assert.deepEqual(p.inputs, []); assert.deepEqual(p.outputs, []);
@@ -82,7 +84,7 @@ for (const loader of ['fabric', 'neoforge']) {
   });
 
   test(`${loader}: custom-directory evidence stays unsupported even with reviewed additions and complete surveys`, () => {
-    const f = fixture(loader);
+    const f = fixture(target);
     f.snapshot.datapack!.directories.push('machines');
     raw(f, 'machines/extract', { material: 'survival:custom', output: 'survival:no_source' });
     const r = f.run();
@@ -94,8 +96,8 @@ for (const loader of ['fabric', 'neoforge']) {
   });
 
   test(`${loader}: runtime-only entries need explicit execution review and missing-material regressions`, () => {
-    const f = fixture(loader);
-    f.snapshot.datapack!.resources = f.snapshot.datapack!.resources.filter(r => r.id !== 'survival:recipe/known.json');
+    const f = fixture(target);
+    f.snapshot.datapack!.resources = f.snapshot.datapack!.resources.filter(r => r.id !== `survival:${directory}/known.json`);
     f.snapshot.coverage.find(c => c.dataset === 'datapack')!.enumerated!--;
     const unreviewed = f.run();
     assert.ok(unreviewed.results.cases.every(c => c.status === 'unsupported'));
@@ -111,7 +113,7 @@ for (const loader of ['fabric', 'neoforge']) {
 
   test(`${loader}: without removes reviewed equipment, stage and dimension prerequisites without seeding products`, () => {
     for (const [kind, key] of [['equipment', 'equipment'], ['stage', 'stages'], ['dimension', 'dimensions']] as const) {
-      const f = fixture(loader), id = `survival:press_${kind}`;
+      const f = fixture(target), id = `survival:press_${kind}`;
       f.packs[0]!.operations[0]!.patch.requirements!.push({ kind, id, evidence: [] });
       f.config.scenario[key].push(id); f.config.scenario.closedResources.push(id);
       f.config.cases!.push({ id: `custom.missing_${kind}`, item: 'survival:custom', expected: 'unreachable', without: [id] });

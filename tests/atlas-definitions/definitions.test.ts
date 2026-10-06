@@ -5,6 +5,7 @@ import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
+import { targets, targetFixture } from '../atlas/fixtures/targets.ts';
 import { loadAtlas, loadDefinitions, evaluateSurvival, validateConfig } from '../../scripts/lib/atlas-survival.mjs';
 import { loadConfig } from '../../dist/core/config.js';
 import { executeRun } from '../../dist/core/runner.js';
@@ -19,8 +20,8 @@ const config = () => validateConfig(JSON.parse(readFileSync(suite, 'utf8')));
 const fixture = () => atlas.readSnapshot(resolve(root, 'tests/atlas-definitions/fixtures/snapshot.json'));
 const packs = () => loadDefinitions(atlas, config(), suite);
 
-for (const loader of ['fabric', 'neoforge']) test(`${loader}: custom serializer and code transformation run through actual Atlas`, () => {
-  const c = config(), s = fixture(), definitions = packs(); c.target.loader = s.loader = definitions[0]!.targets.loader = loader; s.loaderVersion = loader === 'fabric' ? '0.16.14' : '21.1.252';
+for (const target of targets) test(`${target.id}: custom serializer and code transformation run through actual Atlas`, () => {
+  const c = config(), s = fixture(), definitions = packs(); targetFixture(s, target, definitions); Object.assign(c.target, { minecraft: target.minecraft, loader: target.loader });
   const r = evaluateSurvival(atlas, s, c, {}, definitions);
   assert.equal(r.results.cases.length, 10);
   assert.ok(r.results.cases.every(c => c.status === 'passed'), JSON.stringify(r.results));

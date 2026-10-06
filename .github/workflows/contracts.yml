@@ -17,7 +17,14 @@ jobs:
       - run: node .harness/ci/package-manager/node_modules/npm/bin/npm-cli.js ci --ignore-scripts
       - run: node .harness/ci/package-manager/node_modules/npm/bin/npm-cli.js run typecheck
       - run: node .harness/ci/package-manager/node_modules/npm/bin/npm-cli.js test
-      - run: node .harness/ci/package-manager/node_modules/npm/bin/npm-cli.js pack
+      - name: Pack consumer distribution
+        id: package
+        shell: bash
+        run: |
+          node .harness/ci/package-manager/node_modules/npm/bin/npm-cli.js pack --json > .harness/ci/pack.json
+          node --input-type=module -e 'import fs from "node:fs"; const [entry] = JSON.parse(fs.readFileSync(".harness/ci/pack.json")); fs.appendFileSync(process.env.GITHUB_OUTPUT, `tarball=${entry.filename}\n`);'
+      - name: Validate installed package exports, targets, Skills and acquisition template
+        run: node .harness/ci/package-manager/node_modules/npm/bin/npm-cli.js run test:consumer -- --package "${{ steps.package.outputs.tarball }}"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:

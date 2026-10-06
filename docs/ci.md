@@ -2,7 +2,7 @@
 
 [Contract CI](../.github/workflows/contracts.yml) runs npm clean install, typecheck, tests, and pack on Windows and Ubuntu with Node 24.19.0. It uploads package and run artifacts. The workflow installs npm 11.9.0 into an ignored local prefix and invokes its JS entry point explicitly, avoiding differences between bundled and globally upgraded npm on Windows. Keep that version aligned with consumer package generation.
 
-[Atlas survival contracts](../.github/workflows/atlas.yml) separately initializes the exact Atlas submodule commit and runs the saved-data acquisition suite on both OSes, limited to Fabric/NeoForge 1.21.1. Private Atlas read access is a distinct prerequisite; see [survival setup and limits](survival.md). This workflow does not run Minecraft or widen the game support matrix.
+[Atlas survival contracts](../.github/workflows/atlas.yml) separately initializes the exact Atlas submodule commit and runs the saved-data acquisition suite on both OSes, covering Fabric/NeoForge 1.21.1 and Forge/Fabric 1.20.1. Private Atlas read access is a distinct prerequisite; see [survival setup and limits](survival.md). This workflow does not run Minecraft or widen the game support matrix.
 
 [Fixture CI](../.github/workflows/fixtures.yml) is a manually dispatched real-game workflow. It accepts a target (or all) and explicit existing EULA acceptance, defaulting to false. Only select true when the user has already accepted Minecraft's EULA and authorizes its reuse in CI. Setup failure does not count as a game pass.
 
@@ -14,4 +14,4 @@ Evidence collection and upload use `always()`, including incomplete reports afte
 
 To adapt the packaged workflow to another project, see [the CI template](../templates/ci/README.md). Executable configuration and contract tests do not prove a hosted real-game run passed. Run all required suites before making a release claim.
 
-The Atlas job requires `check:atlas`, `test:atlas`, and `test:atlas:definitions` plus baseline and custom acquisition regressions through the exact submodule pin on Windows/Ubuntu. The definition tests include active datapack evidence, overrides and unreviewed/source-only paths on both loaders. Analysis never selects a fixed sibling source override in CI. Custom regression evidence is included in the Atlas survival artifact.
+The Atlas job requires `check:atlas`, `test:atlas`, and `test:atlas:definitions` plus baseline and custom acquisition regressions through the exact submodule pin on Windows/Ubuntu. The definition tests include active datapack evidence, overrides and unreviewed/source-only paths on all four targets, including plural 1.20.1 resources, network serialization, finite observation evidence, stale identities and required-suite unknown failures. Analysis never selects a fixed sibling source override in CI. Custom regression evidence is included in the Atlas survival artifact.
