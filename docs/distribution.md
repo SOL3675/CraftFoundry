@@ -25,7 +25,7 @@ pnpm build
 
 The source argument is an existing Git checkout containing the exact commit in Atlas's `craft-foundry.source.json`. Atlas builds that commit in its ignored temporary checkout; it does not install from the source working tree or change its branch. Omit `--source` to fetch the pinned commit from the recorded origin. Credentials, if required, must already be configured in Git. No tarball or generated build output is committed.
 
-The merged Atlas submodule independently pins Foundry 0.1.5 at `21a7a3d4984eaa154b1c5a8b8d0a2756dfee05c6`; this integration update does not alter that pin or its frozen lock. To validate a new packed candidate on SOL-SUBMARINE, use the isolated consumer overlay in [survival validation](survival.md#validate-a-new-foundry-package-on-sol-submarine).
+The merged Atlas submodule independently pins Foundry 0.1.5 at `21a7a3d4984eaa154b1c5a8b8d0a2756dfee05c6`; this integration update does not alter that pin or its frozen lock. To validate a new packed candidate on a local validation machine, use the isolated consumer overlay in [survival validation](survival.md#validate-a-new-foundry-package-locally).
 
 Atlas pins the complete Git commit and the packed bytes in its pnpm lockfile. Its development guide owns the update procedure. A new source pin must be made available remotely before other developers can bootstrap without the local checkout. Squashing Foundry can change that commit identity; update Atlas's pin and lockfile to the final reachable commit afterward.
 
