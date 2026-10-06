@@ -59,13 +59,13 @@ test('giant JUnit diagnostics are bounded with exact report pointers and complet
   const giant = '<&" 日本語🌋 '.repeat(250000);
   value.targets[0]!.suites[0]!.cases = [
     { id: 'failed', status: 'failed', message: giant },
-    { id: 'unsupported', status: 'unsupported', message: giant, detail: { file: 'sessions/target/suite/詳細 & "reason".json', pointer: '/details/1' } },
+    { id: 'unsupported', status: 'unsupported', message: giant, detail: { file: "sessions/target/suite/詳細 & 'reason'.json", pointer: '/details/1' } },
     { id: 'optional', status: 'skipped', message: giant },
   ];
   value.status = value.targets[0]!.status = value.targets[0]!.suites[0]!.status = 'failed';
   value.targets[0]!.suites[0]!.detected = 3;
   await mkdir(path.join(root, 'sessions/target/suite'), { recursive: true });
-  await writeFile(path.join(root, 'sessions/target/suite/詳細 & "reason".json'), JSON.stringify({ details: [{}, { reason: giant }] }));
+  await writeFile(path.join(root, "sessions/target/suite/詳細 & 'reason'.json"), JSON.stringify({ details: [{}, { reason: giant }] }));
   await saveReport(root, value);
   const xml = await readFile(path.join(root, 'junit.xml'), 'utf8');
   assert.equal(xml, toJUnit(value));
@@ -76,7 +76,7 @@ test('giant JUnit diagnostics are bounded with exact report pointers and complet
   parser.onopentag = node => { if (['error', 'failure'].includes(node.name)) messages.push(String(node.attributes.message)); };
   parser.write(xml).close();
   assert.equal(messages.length, 3);
-  assert.ok(messages[1]!.includes('sessions/target/suite/詳細 & "reason".json#/details/1'));
+  assert.ok(messages[1]!.includes("sessions/target/suite/詳細 & 'reason'.json#/details/1"));
   assert.ok(messages.every(message => message.includes('日本語🌋')));
   assert.equal(JSON.parse(await readFile(path.join(root, 'report.json'), 'utf8')).targets[0].suites[0].cases[0].message, giant);
   value.targets[0]!.suites[0]!.required = false;
