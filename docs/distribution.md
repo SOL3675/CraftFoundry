@@ -6,7 +6,7 @@ Use Node.js 24.19.0 and npm 11.9.0 when producing reproducible consumer packages
 npm ci --ignore-scripts
 npm run check
 npm pack
-npm run test:consumer -- --package craft-foundry-0.1.6.tgz
+npm run test:consumer -- --package craft-foundry-0.1.7.tgz
 ```
 
 `prepack` builds TypeScript. The package includes the CLI, six explicit consumer API subpaths, schemas, Skills, templates, docs, fixtures, root LICENSE, and existing fixture/Gradle notices. Fixture binary and source JARs include their existing MIT license in `META-INF/LICENSE`. The package excludes caches, machine configuration, game downloads, credentials, and run evidence. Review `npm pack --dry-run --json` when changing the package allowlist. Verify a real packed consumer, not only this source checkout.
@@ -36,7 +36,7 @@ Foundry root install/build/pack must never install Atlas, recurse into submodule
 Create the tarball in a reviewed source checkout, copy it into an ignored local dependency directory in the consumer, and install it with an exact file dependency:
 
 ```console
-npm install --save-dev --save-exact ./craft-foundry-0.1.6.tgz --ignore-scripts
+npm install --save-dev --save-exact ./craft-foundry-0.1.7.tgz --ignore-scripts
 npx mch --help
 ```
 

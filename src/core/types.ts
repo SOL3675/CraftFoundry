@@ -91,7 +91,14 @@ export interface BuildAdapter {
   build(targetId: string, options: AdapterOptions): Promise<BuildOutcome>;
   collectArtifacts(targetId: string, destination: string): Promise<Artifact[]>;
 }
-export interface CaseResult { id: string; status: CaseStatus; message?: string; durationMs?: number }
+export interface CaseResult {
+  id: string;
+  status: CaseStatus;
+  message?: string;
+  durationMs?: number;
+  detail?: { file: string; pointer: string };
+  diagnostics?: { schemaVersion: 1; counts: { incomplete: number; unknown: number; stopReasons: number } };
+}
 export interface SuiteResult {
   id: string;
   status: CaseStatus;

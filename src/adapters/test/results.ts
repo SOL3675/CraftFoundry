@@ -3,6 +3,7 @@ import path from 'node:path';
 import sax from 'sax';
 import type { SuiteConfig } from '../../core/types.js';
 import type { SuiteReport, TestCase } from '../../reporting/types.js';
+import { validateCaseDetails } from '../../reporting/result-details.js';
 
 const statuses = new Set(['passed', 'failed', 'unsupported', 'skipped', 'infrastructure-error']);
 const evidencePath = /^(?!\/)(?![A-Za-z]:)(?!.*(?:^|\/)\.\.(?:\/|$))[^\\\u0000-\u001f\u007f]+\.json$/;
@@ -28,6 +29,7 @@ export async function parseResults(file: string): Promise<TestCase[]> {
         test.status = 'failed'; test.message = 'Retry passed after an earlier failure; this case is not a stable pass';
       }
     }
+    await validateCaseDetails(result.cases, path.dirname(file));
     return result.cases;
   }
   const cases: TestCase[] = [];

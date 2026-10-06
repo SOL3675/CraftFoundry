@@ -55,6 +55,7 @@
     },
     "case": {
       "type": "object", "additionalProperties": false, "required": ["id", "status"],
+      "dependencies": { "diagnostics": ["detail"] },
       "properties": {
         "id": { "type": "string", "minLength": 1 }, "status": { "$ref": "#/definitions/status" }, "message": { "type": "string" },
         "detail": {

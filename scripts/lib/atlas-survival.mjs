@@ -137,7 +137,7 @@ export function evaluateSurvival(atlas, snapshot, input, selection = {}, packs =
     message: survivalSummary(c, incomplete),
     diagnostics: { schemaVersion: 1, counts: { incomplete: incomplete.length, unknown: c.analysis.unknown.length, stopReasons: c.analysis.stopReasons.length } },
   })) };
-  return { results, evidence: { schemaVersion: 1, diagnosticContractVersion: 1, incomplete, snapshotId: snapshot.id, snapshotHash: atlas.hash(snapshot), modelHash: model.contentHash, normalizerVersion: model.normalizerVersion, definitions: packs.map(pack => ({ id: pack.id, version: pack.version, hash: atlas.hash(pack) })), originalCoverage: originalModel.coverage, coverage: model.coverage, development, definitionDiagnostics: model.diagnostics.filter(d => d.rule.startsWith('definition-')),
+  return { results, evidence: { schemaVersion: 2, diagnosticContractVersion: 1, incomplete, snapshotId: snapshot.id, snapshotHash: atlas.hash(snapshot), modelHash: model.contentHash, normalizerVersion: model.normalizerVersion, definitions: packs.map(pack => ({ id: pack.id, version: pack.version, hash: atlas.hash(pack) })), originalCoverage: originalModel.coverage, coverage: model.coverage, development, definitionDiagnostics: model.diagnostics.filter(d => d.rule.startsWith('definition-')),
     datapack: model.datapack ?? null,
     recipes: snapshot.recipes,
     viewer: snapshot.viewer ?? null,

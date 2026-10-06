@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFileSync, writeFileSync, mkdtempSync, rmSync, mkdirSync, chmodSync, realpathSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, mkdirSync, chmodSync, realpathSync, cpSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -267,6 +267,18 @@ test('actual Foundry process suite evaluates Atlas cases and saves an auditable 
   await collectFixtureEvidence(project);
   const artifact = join(project, '.harness/ci/evidence/runs', incomplete.id);
   for (const file of suite.evidence!) assert.equal(readFileSync(join(artifact, file), 'utf8'), readFileSync(join(runRoot, file), 'utf8'));
+  const relocated = realpathSync(mkdtempSync(join(tmpdir(), 'Relocated Atlas artifact 日本語 ')));
+  t.after(() => rmSync(relocated, { recursive: true, force: true }));
+  const copiedRun = join(relocated, '.harness/runs', incomplete.id);
+  cpSync(artifact, copiedRun, { recursive: true });
+  const copiedReport = spawnSync(process.execPath, [resolve(root, 'dist/cli/main.js'), 'report', '--project', relocated, '--run', incomplete.id, '--json'], { encoding: 'utf8' });
+  assert.equal(copiedReport.status, 0, copiedReport.stderr);
+  assert.deepEqual(JSON.parse(copiedReport.stdout).targets[0].suites[0].cases, suite.cases);
+  assert.equal(JSON.parse(readFileSync(join(copiedRun, suite.cases[0]!.detail!.file), 'utf8')).incomplete[0], JSON.parse(readFileSync(join(runRoot, suite.cases[0]!.detail!.file), 'utf8')).incomplete[0]);
+  rmSync(join(copiedRun, suite.cases[0]!.detail!.file));
+  const missingReport = spawnSync(process.execPath, [resolve(root, 'dist/cli/main.js'), 'report', '--project', relocated, '--run', incomplete.id, '--json'], { encoding: 'utf8' });
+  assert.equal(missingReport.status, 2, 'missing evidence must fail report inspection');
+  await assert.rejects(collectFixtureEvidence(relocated), { code: 'ENOENT' });
   c.providers.pop(); c.externalSources[0]!.status = 'complete'; c.cases![1]!.expected = 'reachable'; writeFileSync(join(project, 'survival.json'), JSON.stringify(c));
   const failed = await run(); assert.equal(failed.status, 'failed');
   assert.equal(failed.targets[0]!.suites[0]!.cases.find(c => c.id === 'survival.no_source')!.status, 'failed');

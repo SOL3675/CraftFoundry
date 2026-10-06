@@ -12,6 +12,7 @@ import { Ajv } from 'ajv';
 import { readFileSync } from 'node:fs';
 import { assertContainedPath } from '../core/paths.js';
 import { summarizeText } from './summary.js';
+import { validateCaseDetails } from './result-details.js';
 
 const execute = promisify(execFile);
 const validateReport = new Ajv({ allErrors: true, strict: true }).compile(JSON.parse(readFileSync(new URL('../../schemas/run.schema.json', import.meta.url), 'utf8')));
@@ -72,6 +73,7 @@ export async function createRun(loaded: LoadedConfig, command: string): Promise<
 export async function saveReport(directory: string, report: RunReport): Promise<void> {
   const safe = redact(report);
   if (!validateReport(safe)) throw new Error(`Invalid run report: ${JSON.stringify(validateReport.errors)}`);
+  await validateCaseDetails((safe as RunReport).targets.flatMap(target => target.suites.flatMap(suite => suite.cases)), directory);
   const temporary = path.join(directory, `report.${randomUUID()}.tmp`);
   await writeFile(temporary, `${JSON.stringify(safe, null, 2)}\n`);
   await rename(temporary, path.join(directory, 'report.json'));
@@ -86,6 +88,8 @@ export async function readReport(root: string, id: string): Promise<RunReport> {
   if (path.isAbsolute(relative) || relative === '..' || relative.startsWith(`..${path.sep}`)) throw new Error('Report path escapes project root');
   const report = JSON.parse(await readFile(actualFile, 'utf8')) as RunReport;
   if (!validateReport(report) || report.id !== id) throw new Error('Invalid run report');
+  const directory = path.dirname(actualFile);
+  await validateCaseDetails(report.targets.flatMap(target => target.suites.flatMap(suite => suite.cases)), directory);
   return report;
 }
 

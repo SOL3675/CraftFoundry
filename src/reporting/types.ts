@@ -1,13 +1,7 @@
-import type { Artifact } from '../core/types.js';
+import type { Artifact, CaseResult } from '../core/types.js';
 
 export type CaseStatus = 'passed' | 'failed' | 'unsupported' | 'skipped' | 'infrastructure-error';
-export interface TestCase {
-  id: string;
-  status: CaseStatus;
-  message?: string;
-  detail?: { file: string; pointer: string };
-  diagnostics?: { schemaVersion: 1; counts: { incomplete: number; unknown: number; stopReasons: number } };
-  durationMs?: number;
+export interface TestCase extends CaseResult {
   attempts?: Array<{ status: CaseStatus; message?: string }>;
 }
 export interface SuiteReport {

@@ -64,6 +64,8 @@ test('giant JUnit diagnostics are bounded with exact report pointers and complet
   ];
   value.status = value.targets[0]!.status = value.targets[0]!.suites[0]!.status = 'failed';
   value.targets[0]!.suites[0]!.detected = 3;
+  await mkdir(path.join(root, 'sessions/target/suite'), { recursive: true });
+  await writeFile(path.join(root, 'sessions/target/suite/詳細 & "reason".json'), JSON.stringify({ details: [{}, { reason: giant }] }));
   await saveReport(root, value);
   const xml = await readFile(path.join(root, 'junit.xml'), 'utf8');
   assert.equal(xml, toJUnit(value));
@@ -146,6 +148,21 @@ test('reports round-trip, reject traversal and inconsistent report identities', 
   for (const id of ['../test-run', '..\\test-run', 'C:\\outside', '/outside']) await assert.rejects(readReport(root, id), /Invalid run ID/);
   await writeFile(path.join(destination, 'report.json'), JSON.stringify({ ...report(), id: 'other-run' }));
   await assert.rejects(readReport(root, 'test-run'), /Invalid run report/);
+});
+
+test('report reading verifies complete detail files and pointers instead of silently accepting missing evidence', async t => {
+  const root = await directory(t), destination = path.join(root, '.harness/runs/test-run');
+  await mkdir(destination, { recursive: true });
+  const value = report();
+  value.targets[0]!.suites[0]!.cases[0]!.detail = { file: 'detail.json', pointer: '/details/0' };
+  await assert.rejects(saveReport(destination, value), { code: 'ENOENT' });
+  await writeFile(path.join(destination, 'report.json'), JSON.stringify(value));
+  await assert.rejects(readReport(root, value.id), { code: 'ENOENT' });
+  await writeFile(path.join(destination, 'detail.json'), '{}');
+  await assert.rejects(readReport(root, value.id), /pointer/);
+  await writeFile(path.join(destination, 'detail.json'), '{"details":[{"reason":"Complete detail"}]}');
+  await saveReport(destination, value);
+  assert.deepEqual(await readReport(root, value.id), value);
 });
 
 test('report access cannot follow a run-directory symlink outside project', async (t) => {

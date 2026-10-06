@@ -2,6 +2,7 @@ import { copyFile, mkdir, readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { assertContainedPath } from '../../dist/core/paths.js';
+import { validateCaseDetails } from '../../dist/reporting/result-details.js';
 
 export async function collectFixtureEvidence(root = fileURLToPath(new URL('../../', import.meta.url))) {
   const output = path.join(root, '.harness/ci/evidence');
@@ -44,8 +45,12 @@ export async function collectFixtureEvidence(root = fileURLToPath(new URL('../..
     }
     catch (error) { if (error.code === 'ENOENT' || error instanceof SyntaxError) report = {}; else throw error; }
     if (!report || typeof report !== 'object') report = {};
+    const detailFiles = await validateCaseDetails((report.targets ?? []).flatMap(target => (target.suites ?? []).flatMap(suite => suite.cases ?? [])), directory);
+    const detailPaths = new Set(detailFiles.map(file => path.relative(directory, file).replaceAll('\\', '/')));
     const evidence = new Set((report.targets ?? []).flatMap(target => (target.suites ?? []).flatMap(suite => [...(suite.logs ?? []), ...(suite.evidence ?? [])])));
+    for (const file of detailFiles) await copy(file, path.join(relative, path.relative(directory, file)));
     for (const item of evidence) {
+      if (detailPaths.has(item)) continue; // Already copied once after mandatory validation.
       if (typeof item !== 'string' || !item.startsWith('sessions/') || !/\.(?:log|png|json|properties|txt)$/.test(item)) continue;
       await assertContainedPath(directory, path.join(directory, item));
       try { await copy(path.join(directory, item), path.join(relative, item)); }
