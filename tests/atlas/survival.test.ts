@@ -6,10 +6,11 @@ import { resolve, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { targets, targetFixture } from './fixtures/targets.ts';
-import { evaluateSurvival, loadAtlas, validateConfig, externalKinds } from '../../scripts/lib/atlas-survival.mjs';
+import { evaluateSurvival, loadAtlas, validateConfig, externalKinds, survivalSummaryLimit } from '../../scripts/lib/atlas-survival.mjs';
 import { parseResults, evaluateSuite } from '../../dist/adapters/test/results.js';
 import { loadConfig } from '../../dist/core/config.js';
 import { executeRun } from '../../dist/core/runner.js';
+import { collectFixtureEvidence } from '../../.github/scripts/collect-fixture-evidence.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const atlas = await loadAtlas(root); // Required real submodule; missing access must fail this job.
@@ -71,7 +72,7 @@ for (const kind of externalKinds) test(`unreviewed ${kind} coverage cannot prove
   const r = evaluateSurvival(atlas, fixture(), c);
   assert.ok(r.results.cases.every(c => c.status === 'unsupported'));
   assert.equal(r.evidence.details.find(c => c.item === 'survival:no_source')!.analysis.status, 'unknown');
-  assert.ok(r.evidence.details[0]!.incomplete.some(reason => reason.includes(kind)));
+  assert.ok(r.evidence.incomplete.some(reason => reason.includes(kind)));
 });
 
 test('unknown providers and open resource domains remain unknown; inventory needs provenance', () => {
@@ -135,7 +136,7 @@ test('Atlas-owned fixture data yields an actual route while its unsupported cove
   assert.ok(r.evidence.details[0]!.analysis.path.includes('atlas:diamond'));
   assert.ok(r.evidence.details[0]!.analysis.evidence.includes('runtime:tags'));
   assert.equal(r.results.cases[0]!.status, 'unsupported');
-  assert.ok(r.evidence.details[0]!.incomplete.some(reason => reason.includes('loot')));
+  assert.ok(r.evidence.incomplete.some(reason => reason.includes('loot')));
 });
 
 test('snapshot target mismatch, invalid input and missing targets fail before any results', () => {
@@ -145,6 +146,51 @@ test('snapshot target mismatch, invalid input and missing targets fail before an
   const duplicate = config(); duplicate.cases!.push(duplicate.cases![0]!);
   assert.throws(() => validateConfig(duplicate), /Duplicate/);
   assert.throws(() => evaluateSurvival(atlas, fixture(), one('absent')), /absent from captured registry/);
+});
+
+test('millions of diagnostic characters stay complete in evidence with bounded deterministic multi-case summaries', () => {
+  const snapshot = fixture(), c = config();
+  const giant = '日本語🌋 <unknown & "reason">\n'.repeat(80000);
+  // Exercise real normalization/analysis and replace only the diagnostic volume.
+  const analysis = atlas.analyze(atlas.normalize(snapshot), c.scenario, 'survival:obtainable');
+  const unknown = [giant, ...Array.from({ length: 10000 }, (_, i) => `Unknown hook ${i}`)];
+  const stopReasons = Array.from({ length: 10000 }, (_, i) => ({ process: `survival:process${i}`, kind: 'constraints', target: `survival:target${i}`, message: i === 0 ? giant : `Blocked prerequisite ${i}`, evidence: [`raw:${i}`] }));
+  const noisyAtlas = { ...atlas, analyze: () => ({ ...analysis, unknown, stopReasons }) };
+  c.providers.push({ resource: 'survival:seed', kind: 'loot', availability: 'unknown', evidence: giant });
+  const first = evaluateSurvival(noisyAtlas, snapshot, c), second = evaluateSurvival(noisyAtlas, snapshot, c);
+  assert.deepEqual(first, second);
+  for (const result of first.results.cases) {
+    assert.equal(result.status, 'unsupported');
+    assert.ok(result.message.length <= survivalSummaryLimit);
+    assert.match(result.message, /unknown=10001/);
+    assert.match(result.message, /stopReasons=10000/);
+    assert.match(result.message, /omitted=9999/);
+    assert.match(result.message, /constraints survival:target0/);
+    assert.match(result.message, /Next: Review incomplete coverage/);
+    assert.ok(result.message.includes('日本語🌋'));
+    assert.equal(result.message.includes('\n'), false);
+    assert.deepEqual(result.diagnostics.counts, { incomplete: first.evidence.incomplete.length, unknown: 10001, stopReasons: 10000 });
+  }
+  assert.ok(JSON.stringify(first.results).length < c.cases!.length * 2300);
+  assert.ok(first.evidence.incomplete.some(reason => reason.endsWith(giant)));
+  for (const detail of first.evidence.details) {
+    assert.equal(detail.incompleteRef, '#/incomplete');
+    assert.equal(Object.hasOwn(detail, 'incomplete'), false, 'global diagnostic text must not be duplicated per case');
+    assert.deepEqual(detail.analysis.unknown, unknown);
+    assert.deepEqual(detail.analysis.stopReasons, stopReasons);
+  }
+  assert.deepEqual(first.evidence.recipes, snapshot.recipes);
+});
+
+test('a giant single capture reason is abbreviated even when no records are omitted', () => {
+  const s = fixture(), c = one('obtainable');
+  const giant = 'Finite sample 🌋 '.repeat(200000);
+  s.coverage[0]!.status = 'partial'; s.coverage[0]!.reasons = [giant];
+  const result = evaluateSurvival(atlas, s, c);
+  assert.equal(result.results.cases[0]!.status, 'unsupported');
+  assert.ok(result.results.cases[0]!.message.length <= survivalSummaryLimit);
+  assert.ok(result.evidence.incomplete.some(reason => reason.includes(giant)));
+  assert.deepEqual(result.evidence.originalCoverage[0]!.reasons, [giant]);
 });
 
 test('real CLI produces harness-compatible fresh results and diagnostics in a Unicode space path', async t => {
@@ -158,6 +204,7 @@ test('real CLI produces harness-compatible fresh results and diagnostics in a Un
   assert.equal(evaluateSuite('survival', { driver: 'process', expectedTests: c.cases!.map(c => c.id), minTests: 7 }, cases, true).status, 'passed');
   const evidence = JSON.parse(readFileSync(output + '.evidence.json', 'utf8'));
   assert.match(evidence.atlasCommit, /^[a-f0-9]{40}$/); assert.equal(evidence.details.length, 7);
+  cases.forEach((c, index) => assert.deepEqual(c.detail, { file: 'results.json.evidence.json', pointer: `/details/${index}` }));
   c.externalSources[0]!.status = 'unsupported'; writeFileSync(input, JSON.stringify(c));
   assert.equal(run().status, 1);
   const incomplete = await parseResults(output);
@@ -191,11 +238,36 @@ test('actual Foundry process suite evaluates Atlas cases and saves an auditable 
   assert.equal(passed.targets[0]!.suites[0]!.detected, 7);
   const evidence = join(project, '.harness/runs', passed.id, 'sessions/neoforge-1.21.1/survival-acquisition/survival-results.json.evidence.json');
   assert.equal(JSON.parse(readFileSync(evidence, 'utf8')).details.length, 7);
+  const giant = 'Unverified hook 日本語🌋 <&> '.repeat(80000);
+  c.providers.push({ resource: 'survival:seed', kind: 'loot', availability: 'unknown', evidence: giant });
   c.externalSources[0]!.status = 'partial'; writeFileSync(join(project, 'survival.json'), JSON.stringify(c));
   const incomplete = await run(); assert.equal(incomplete.status, 'failed');
   assert.equal(incomplete.targets[0]!.suites[0]!.detected, 7);
   assert.ok(incomplete.targets[0]!.suites[0]!.cases.every(c => c.status === 'unsupported'));
-  c.externalSources[0]!.status = 'complete'; c.cases![1]!.expected = 'reachable'; writeFileSync(join(project, 'survival.json'), JSON.stringify(c));
+  const runRoot = join(project, '.harness/runs', incomplete.id);
+  const suite = incomplete.targets[0]!.suites[0]!;
+  assert.ok(JSON.stringify(incomplete).length < 30000, 'large evidence must not leak back into the report');
+  assert.ok(suite.cases.every(c => c.message!.length <= survivalSummaryLimit));
+  assert.equal(suite.evidence!.length, 2, 'retain results and one companion, not a copy per case');
+  for (const [index, testCase] of suite.cases.entries()) {
+    assert.deepEqual(testCase.detail, { file: 'sessions/neoforge-1.21.1/survival-acquisition/survival-results.json.evidence.json', pointer: `/details/${index}` });
+    const full = JSON.parse(readFileSync(join(runRoot, testCase.detail!.file), 'utf8'));
+    assert.equal(full.details[index].id, testCase.id);
+    assert.ok(full.incomplete.some((reason: string) => reason.endsWith(giant)));
+    assert.equal(readFileSync(join(runRoot, testCase.detail!.file), 'utf8').split(giant).length, 2, 'one shared giant diagnostic across seven cases');
+  }
+  const xml = readFileSync(join(runRoot, 'junit.xml'), 'utf8');
+  assert.ok(xml.length < 20000);
+  assert.ok(xml.includes(`${suite.cases[0]!.detail!.file}#/details/0`));
+  for (const flag of [[], ['--json']]) {
+    const cli = spawnSync(process.execPath, [resolve(root, 'dist/cli/main.js'), 'report', '--project', project, '--run', incomplete.id, ...flag], { encoding: 'utf8' });
+    assert.equal(cli.status, 0, cli.stderr);
+    assert.deepEqual(JSON.parse(cli.stdout).targets[0].suites[0].cases, suite.cases);
+  }
+  await collectFixtureEvidence(project);
+  const artifact = join(project, '.harness/ci/evidence/runs', incomplete.id);
+  for (const file of suite.evidence!) assert.equal(readFileSync(join(artifact, file), 'utf8'), readFileSync(join(runRoot, file), 'utf8'));
+  c.providers.pop(); c.externalSources[0]!.status = 'complete'; c.cases![1]!.expected = 'reachable'; writeFileSync(join(project, 'survival.json'), JSON.stringify(c));
   const failed = await run(); assert.equal(failed.status, 'failed');
   assert.equal(failed.targets[0]!.suites[0]!.cases.find(c => c.id === 'survival.no_source')!.status, 'failed');
 });

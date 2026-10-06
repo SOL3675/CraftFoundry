@@ -9,6 +9,8 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { redact, redactText } from '../dist/reporting/redact.js';
 import type { RunReport } from '../src/reporting/types.ts';
+import { summarizeText } from '../dist/reporting/summary.js';
+import sax from 'sax';
 
 function report(): RunReport {
   return {
@@ -50,6 +52,46 @@ test('normal JUnit has testcase durations and escaped diagnostics without invali
   assert.match(xml, /&lt;case &amp; &quot;name&quot;&gt;/);
   assert.match(xml, /failures="1"/);
   assert.equal(xml.includes('\u0001'), false);
+});
+
+test('giant JUnit diagnostics are bounded with exact report pointers and complete JSON preservation', async t => {
+  const root = await directory(t), value = report();
+  const giant = '<&" 日本語🌋 '.repeat(250000);
+  value.targets[0]!.suites[0]!.cases = [
+    { id: 'failed', status: 'failed', message: giant },
+    { id: 'unsupported', status: 'unsupported', message: giant, detail: { file: 'sessions/target/suite/詳細 & "reason".json', pointer: '/details/1' } },
+    { id: 'optional', status: 'skipped', message: giant },
+  ];
+  value.status = value.targets[0]!.status = value.targets[0]!.suites[0]!.status = 'failed';
+  value.targets[0]!.suites[0]!.detected = 3;
+  await saveReport(root, value);
+  const xml = await readFile(path.join(root, 'junit.xml'), 'utf8');
+  assert.equal(xml, toJUnit(value));
+  assert.ok(xml.length < 18000);
+  assert.match(xml, /report.json#\/targets\/0\/suites\/0\/cases\/0\/message/);
+  const messages: string[] = [];
+  const parser = sax.parser(true);
+  parser.onopentag = node => { if (['error', 'failure'].includes(node.name)) messages.push(String(node.attributes.message)); };
+  parser.write(xml).close();
+  assert.equal(messages.length, 3);
+  assert.ok(messages[1]!.includes('sessions/target/suite/詳細 & "reason".json#/details/1'));
+  assert.ok(messages.every(message => message.includes('日本語🌋')));
+  assert.equal(JSON.parse(await readFile(path.join(root, 'report.json'), 'utf8')).targets[0].suites[0].cases[0].message, giant);
+  value.targets[0]!.suites[0]!.required = false;
+  assert.match(toJUnit(value), /<skipped message="/);
+  assert.ok(toJUnit(value).length < 18000);
+});
+
+test('Unicode truncation is deterministic at the boundary and giant gates reference their full report error', () => {
+  assert.equal(summarizeText('日本語\ud800\ufffe\u0001', 1800), '日本語�');
+  assert.equal(summarizeText('a'.repeat(1798) + '🌋tail', 1800), 'a'.repeat(1798) + '…');
+  assert.equal(summarizeText('a'.repeat(1797) + '🌋tail', 1800), 'a'.repeat(1797) + '🌋…');
+  const value = report(); value.status = 'infrastructure-error'; value.targets = [];
+  value.error = 'Environment <&> '.repeat(200000);
+  const xml = toJUnit(value);
+  assert.ok(xml.length < 4000); assert.match(xml, /report.json#\/error/);
+  value.targets = [{ id: 'fabric', minecraft: '1.21.1', loader: 'fabric', status: 'failed', artifacts: [], suites: [], error: value.error }];
+  assert.match(toJUnit(value), /report.json#\/targets\/0\/error/);
 });
 
 test('suite detection errors remain visible to JUnit even when detected cases individually passed', () => {

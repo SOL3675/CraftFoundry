@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, chmodSync, copyFileSync, readFileSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -68,5 +68,39 @@ try {
   execFileSync(process.execPath, ['--input-type=module', '-e', "for (const part of ['core/config','core/cache','core/tools','core/types','adapters/runtime/server','adapters/runtime/mc-pilot']) await import('craft-foundry/' + part)"], { cwd: directory, encoding: 'utf8' });
   const listed = cli('targets', '--project', packageRoot, '--json');
   assert.ok(JSON.stringify(listed).includes('forge-1.20.1') && JSON.stringify(listed).includes('fabric-1.20.1'));
-  console.log(JSON.stringify({ version, packageSha256: createHash('sha256').update(readFileSync(options['--package'])).digest('hex'), previousVersion: previous?.version ?? null, skills: updated, targets: 4, exports: 6, template: 'exact-target and finite boundaries verified' }));
+  // The repository-only Atlas producer is not shipped. Its optional result metadata
+  // must still survive the installed process driver, report CLI and CI template.
+  mkdirSync(join(directory, 'build/libs'), { recursive: true });
+  writeFileSync(join(directory, 'build/libs/fixture.jar'), 'Offline contract artifact');
+  writeFileSync(join(directory, 'manifest.json'), JSON.stringify({ schemaVersion: 1, target: 'fabric', minecraft: '1.21.1', loader: 'fabric', artifacts: [{ path: 'build/libs/fixture.jar', kind: 'distribution', side: 'both' }] }));
+  writeFileSync(join(directory, 'gradlew.bat'), '@echo off\r\nexit /b 0\r\n');
+  writeFileSync(join(directory, 'gradlew'), '#!/bin/sh\nexit 0\n'); chmodSync(join(directory, 'gradlew'), 0o755);
+  writeFileSync(join(directory, 'produce.mjs'), `import {writeFileSync} from 'node:fs';
+writeFileSync('results.json.evidence.json', JSON.stringify({details:[{reason:'Complete detail 日本語🌋 <&> '.repeat(100000)}]}));
+writeFileSync('results.json', JSON.stringify({schemaVersion:1,cases:[{id:'survival.item',status:'unsupported',message:'Unknown acquisition; Next: review the evidence and capture',diagnostics:{schemaVersion:1,counts:{incomplete:1,unknown:0,stopReasons:0}},detail:{file:'results.json.evidence.json',pointer:'/details/0'}}]}));`);
+  writeFileSync(join(directory, 'harness.config.json'), JSON.stringify({ schemaVersion: 1, projectId: 'packed-diagnostics',
+    builds: { main: { root: '.', adapter: 'gradle' } },
+    targets: { fabric: { minecraft: '1.21.1', loader: 'fabric', build: 'main', tasks: { build: ['assemble'] }, artifactManifest: 'manifest.json', requiredSuites: ['survival'] } },
+    suites: { survival: { driver: 'process', runtime: 'analysis', results: 'results.json', expectedTests: ['survival.item'] } },
+    runtimes: { analysis: { kind: 'server', capabilities: [], command: { executable: process.execPath, args: ['{projectRoot}/produce.mjs'] } } },
+  }));
+  const tested = spawnSync(process.execPath, [join(packageRoot, 'dist/cli/main.js'), 'test', '--target', 'fabric', '--json'], { cwd: directory, encoding: 'utf8' });
+  assert.equal(tested.status, 1, tested.stderr); const run = JSON.parse(tested.stdout);
+  const caseResult = run.targets[0].suites[0].cases[0];
+  assert.equal(caseResult.status, 'unsupported');
+  assert.ok(tested.stdout.length < 10000);
+  assert.deepEqual(cli('report', '--run', run.id), run);
+  const runRoot = join(directory, '.harness/runs', run.id), detailFile = caseResult.detail.file;
+  assert.ok(run.targets[0].suites[0].evidence.includes(detailFile));
+  assert.ok(readFileSync(join(runRoot, 'junit.xml'), 'utf8').includes(detailFile + '#/details/0'));
+  const bytes = readFileSync(join(runRoot, detailFile));
+  assert.ok(bytes.length > 2000000);
+  // Install the unmodified CI template in its documented .github/scripts layout.
+  const collector = join(packageRoot, '.github/scripts/collect-fixture-evidence.mjs');
+  mkdirSync(join(packageRoot, '.github/scripts'), { recursive: true });
+  copyFileSync(join(packageRoot, 'templates/ci/scripts/collect-fixture-evidence.mjs'), collector);
+  const collect = spawnSync(process.execPath, ['--input-type=module', '-e', "import {pathToFileURL} from 'node:url'; const {collectFixtureEvidence} = await import(pathToFileURL(process.argv[1]).href); await collectFixtureEvidence(process.argv[2]);", collector, directory], { cwd: directory, encoding: 'utf8' });
+  assert.equal(collect.status, 0, collect.stderr);
+  assert.deepEqual(readFileSync(join(directory, '.harness/ci/evidence/runs', run.id, detailFile)), bytes);
+  console.log(JSON.stringify({ version, packageSha256: createHash('sha256').update(readFileSync(options['--package'])).digest('hex'), previousVersion: previous?.version ?? null, skills: updated, targets: 4, exports: 6, template: 'exact-target and finite boundaries verified', diagnostics: 'installed process/report/JUnit/CI detail preservation verified' }));
 } finally { rmSync(directory, { recursive: true, force: true }); }

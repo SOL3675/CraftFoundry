@@ -5,6 +5,8 @@ export interface TestCase {
   id: string;
   status: CaseStatus;
   message?: string;
+  detail?: { file: string; pointer: string };
+  diagnostics?: { schemaVersion: 1; counts: { incomplete: number; unknown: number; stopReasons: number } };
   durationMs?: number;
   attempts?: Array<{ status: CaseStatus; message?: string }>;
 }

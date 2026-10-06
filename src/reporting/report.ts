@@ -11,6 +11,7 @@ import { redactText } from './redact.js';
 import { Ajv } from 'ajv';
 import { readFileSync } from 'node:fs';
 import { assertContainedPath } from '../core/paths.js';
+import { summarizeText } from './summary.js';
 
 const execute = promisify(execFile);
 const validateReport = new Ajv({ allErrors: true, strict: true }).compile(JSON.parse(readFileSync(new URL('../../schemas/run.schema.json', import.meta.url), 'utf8')));
@@ -91,28 +92,39 @@ export async function readReport(root: string, id: string): Promise<RunReport> {
 function escapeXml(value: string): string {
   return value.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '').replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' })[c]!);
 }
+function diagnosticXml(text: string, reference: string, detail?: { file: string; pointer: string }): string {
+  const summary = summarizeText(text, 1800);
+  const full = detail ? `${detail.file}#${detail.pointer}` : text !== summary ? `report.json#${reference}` : undefined;
+  return escapeXml(`${summary}${full ? `; Detail: ${full}` : ''}`);
+}
 export function toJUnit(report: RunReport): string {
   report = redact(report) as RunReport;
-  const suites = report.targets.flatMap(target => target.suites.map(suite => {
+  const suites = report.targets.flatMap((target, targetIndex) => target.suites.map((suite, suiteIndex) => {
     const cases = suite.cases.length ? [...suite.cases] : [{ id: suite.id, status: suite.status, message: suite.error }];
     if (suite.status !== 'passed' && cases.every(test => test.status === 'passed')) cases.push({ id: `${suite.id}.harness-gate`, status: suite.status, message: suite.error ?? 'Suite acceptance conditions were not met' });
     const counts = { failed: 0, error: 0, skipped: 0 };
-    const lines = cases.map(test => {
+    const lines = cases.map((test, caseIndex) => {
+      const original = test.message ?? suite.error ?? test.status;
+      const reference = `/targets/${targetIndex}/suites/${suiteIndex}/${caseIndex < suite.cases.length && test.message !== undefined ? `cases/${caseIndex}/message` : 'error'}`;
+      const message = diagnosticXml(original, reference, test.detail);
       let body = '';
-      if (test.status === 'failed') { counts.failed++; body = `<failure message="${escapeXml(test.message ?? suite.error ?? 'Failed')}"/>`; }
+      if (test.status === 'failed') { counts.failed++; body = `<failure message="${message}"/>`; }
       else if (test.status === 'infrastructure-error' || (suite.required && ['unsupported', 'skipped'].includes(test.status))) {
-        counts.error++; body = `<error message="${escapeXml(test.message ?? suite.error ?? test.status)}"/>`;
-      } else if (test.status !== 'passed') { counts.skipped++; body = `<skipped message="${escapeXml(test.status)}"/>`; }
+        counts.error++; body = `<error message="${message}"/>`;
+      } else if (test.status !== 'passed') { counts.skipped++; body = `<skipped message="${message}"/>`; }
       return `<testcase classname="${escapeXml(target.id)}" name="${escapeXml(test.id)}" time="${(test.durationMs ?? 0) / 1000}">${body}</testcase>`;
     });
     return `<testsuite name="${escapeXml(`${target.id}/${suite.id}`)}" tests="${cases.length}" failures="${counts.failed}" errors="${counts.error}" skipped="${counts.skipped}">${lines.join('')}</testsuite>`;
   }));
-  for (const target of report.targets) {
+  for (const [targetIndex, target] of report.targets.entries()) {
     if (target.status !== 'passed' && !target.suites.some(suite => suite.status !== 'passed')) {
-      suites.push(`<testsuite name="${escapeXml(target.id)}" tests="1" errors="1"><testcase name="target-gate"><error message="${escapeXml(target.error ?? target.status)}"/></testcase></testsuite>`);
+      suites.push(`<testsuite name="${escapeXml(target.id)}" tests="1" errors="1"><testcase name="target-gate"><error message="${diagnosticXml(target.error ?? target.status, `/targets/${targetIndex}/error`)}"/></testcase></testsuite>`);
     }
   }
   // A preflight/build failure must remain visible to CI even when no suite was started.
-  if (!suites.length && report.status !== 'passed') suites.push(`<testsuite name="harness" tests="1" errors="1"><testcase name="run"><error message="${escapeXml(report.error ?? report.targets.find(t => t.error)?.error ?? report.status)}"/></testcase></testsuite>`);
+  if (!suites.length && report.status !== 'passed') {
+    const failedTarget = report.targets.findIndex(t => t.error !== undefined);
+    suites.push(`<testsuite name="harness" tests="1" errors="1"><testcase name="run"><error message="${diagnosticXml(report.error ?? report.targets[failedTarget]?.error ?? report.status, report.error !== undefined ? '/error' : `/targets/${failedTarget}/error`)}"/></testcase></testsuite>`);
+  }
   return `<?xml version="1.0" encoding="UTF-8"?>\n<testsuites>${suites.join('')}</testsuites>\n`;
 }

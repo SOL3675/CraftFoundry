@@ -1,5 +1,5 @@
 import { readFileSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { loadAtlas, validateConfig, evaluateSurvival, loadDefinitions } from './lib/atlas-survival.mjs';
@@ -39,9 +39,10 @@ try {
     if (!target || target.minecraft !== snapshot.minecraft || target.loader !== snapshot.loader || target.loaderVersion && target.loaderVersion !== snapshot.loaderVersion) throw new Error('Snapshot does not match the active harness target');
   }
   const { results, evidence } = evaluateSurvival(atlas, snapshot, config, { mod: options['--mod'], items: options['--items']?.split(',') }, packs);
+  const cases = results.cases.map((c, index) => ({ ...c, detail: { file: basename(output) + '.evidence.json', pointer: `/details/${index}` } }));
   mkdirSync(dirname(output), { recursive: true });
   writeFileSync(output + '.evidence.json', JSON.stringify({ ...evidence, atlasCommit, atlasSource: localSource ? 'explicit-local-development' : 'pinned-submodule' }, null, 2) + '\n');
-  writeFileSync(output, JSON.stringify(results, null, 2) + '\n');
+  writeFileSync(output, JSON.stringify({ ...results, cases }, null, 2) + '\n');
   console.log(JSON.stringify({ results: output, cases: results.cases.length, atlasCommit }));
   // The process driver reads cases only after a successful transport exit.
   // In harness mode the required-suite evaluator owns the validation verdict.

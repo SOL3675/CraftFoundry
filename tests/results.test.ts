@@ -67,6 +67,23 @@ test('malformed case metadata and attempt histories cannot become successful typ
   }
 });
 
+test('diagnostic counts and detail references are optional structured versioned metadata, rejecting malformed input', async t => {
+  const diagnostics = { schemaVersion: 1, counts: { incomplete: 10000, unknown: 1, stopReasons: 2 } };
+  const detail = { file: 'details/日本語 reason.json', pointer: '/details/0' };
+  const cases = [{ id: 'survival.item', status: 'unsupported', message: 'summary', diagnostics, detail }];
+  assert.deepEqual(await parseResults(await resultFile(t, JSON.stringify({ schemaVersion: 1, cases }))), cases);
+  for (const metadata of [
+    { detail: { ...detail, file: '../outside.json' } }, { detail: { ...detail, file: 'C:/outside.json' } },
+    { detail: { ...detail, file: '/outside.json' } }, { detail: { ...detail, file: 'details\\outside.json' } },
+    { detail: { ...detail, pointer: '/bad~2' } }, { detail: { ...detail, pointer: 'details/0' } },
+    { detail: { ...detail, file: 'detail.bin' } }, { detail: { ...detail, file: 'detail\n.json' } },
+    { detail: { ...detail, file: 'detail\ud800.json' } }, { detail: { ...detail, pointer: '/bad\nkey' } },
+    { diagnostics: { ...diagnostics, schemaVersion: 2 } }, { diagnostics: { schemaVersion: 1, counts: { unknown: 1 } } },
+    { diagnostics: { ...diagnostics, counts: { ...diagnostics.counts, unknown: -1 } } },
+    { diagnostics: { ...diagnostics, counts: { ...diagnostics.counts, unknown: 'giant' } } },
+  ]) await assert.rejects(parseResults(await resultFile(t, JSON.stringify({ schemaVersion: 1, cases: [{ ...cases[0], ...metadata }] }))), /Invalid/);
+});
+
 test('JUnit imports stable IDs, durations, assertions, infrastructure errors and skipped cases', async (t) => {
   const cases = await parseResults(await resultFile(t, `<testsuites><testsuite name="unit" tests="4">
     <testcase classname="Fixture" name="good" time="0.125"/>
