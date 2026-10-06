@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { resolve, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
+import { targets, targetFixture } from './fixtures/targets.ts';
 import { evaluateSurvival, loadAtlas, validateConfig, externalKinds } from '../../scripts/lib/atlas-survival.mjs';
 import { parseResults, evaluateSuite } from '../../dist/adapters/test/results.js';
 import { loadConfig } from '../../dist/core/config.js';
@@ -18,9 +19,8 @@ function one(item: string, expected: 'reachable' | 'unreachable' = 'reachable') 
   const c = config(); c.cases = [{ id: `survival.${item}`, item: `survival:${item}`, expected }]; return c;
 }
 
-for (const loader of ['fabric', 'neoforge']) test(`real Atlas ${loader} 1.21.1 normalizer and analyzer: seven closed fixture cases`, () => {
-  const s = fixture(), c = config(); s.loader = c.target.loader = loader;
-  s.loaderVersion = loader === 'fabric' ? '0.16.14' : '21.1.252';
+for (const target of targets) test(`real Atlas ${target.id} normalizer and analyzer: seven closed fixture cases`, () => {
+  const s = targetFixture(fixture(), target), c = config(); Object.assign(c.target, { minecraft: target.minecraft, loader: target.loader });
   const result = evaluateSurvival(atlas, s, c);
   assert.equal(result.results.cases.length, 7);
   assert.ok(result.results.cases.every(c => c.status === 'passed'));
@@ -116,7 +116,7 @@ test('finite stock does not prove a feasible acquisition schedule', () => {
   assert.match(r.results.cases[0]!.message, /Finite inventory/);
 });
 
-for (const [minecraft, loader] of [['1.20.1', 'fabric'], ['1.21.1', 'forge'], ['1.21.2', 'neoforge']]) test(`out-of-scope ${loader} ${minecraft} is unsupported`, () => {
+for (const [minecraft, loader] of [['1.20.1', 'neoforge'], ['1.21.1', 'forge'], ['1.21.2', 'neoforge'], ['1.19.2', 'fabric'], ['1.20.2', 'forge']]) test(`out-of-scope ${loader} ${minecraft} is unsupported`, () => {
   const s = fixture(), c = one('no_source', 'unreachable');
   s.minecraft = c.target.minecraft = minecraft!; s.loader = c.target.loader = loader!;
   const r = evaluateSurvival(atlas, s, c);

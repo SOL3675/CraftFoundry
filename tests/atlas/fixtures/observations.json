@@ -1,0 +1,272 @@
+[
+  {
+    "schemaVersion": 1,
+    "id": "finite-loot",
+    "kind": "loot",
+    "session": "offline-regression",
+    "generation": 1,
+    "minecraft": "1.20.1",
+    "loader": "forge",
+    "loaderVersion": "47.3.0",
+    "environmentHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "seed": "42",
+    "generator": {
+      "type": "minecraft:noise"
+    },
+    "dimension": "minecraft:overworld",
+    "difficulty": "normal",
+    "biome": "minecraft:plains",
+    "position": [
+      0,
+      64,
+      0
+    ],
+    "player": {
+      "uuid": "synthetic-player",
+      "luck": 2,
+      "gameMode": "creative"
+    },
+    "gameTime": "1",
+    "dayTime": "1",
+    "weather": {
+      "raining": false,
+      "thundering": false
+    },
+    "gameRules": "{}",
+    "trials": 1,
+    "chunks": [
+      {
+        "x": 0,
+        "z": 0
+      }
+    ],
+    "lootTable": "survival:probe",
+    "context": {
+      "kind": "explicit_table",
+      "luck": 0
+    },
+    "samples": [
+      {
+        "trial": 0,
+        "randomSeed": "43",
+        "outputs": [
+          {
+            "resource": "survival:no_source",
+            "amount": 2,
+            "stack": {
+              "id": "survival:no_source",
+              "Count": 2
+            }
+          }
+        ]
+      }
+    ],
+    "totals": {
+      "survival:no_source": 2
+    },
+    "limitations": [
+      "Synthetic finite sample; no actual block break, probability or renewable supply proof"
+    ]
+  },
+  {
+    "schemaVersion": 1,
+    "id": "finite-block",
+    "kind": "loot",
+    "session": "offline-regression",
+    "generation": 1,
+    "minecraft": "1.20.1",
+    "loader": "forge",
+    "loaderVersion": "47.3.0",
+    "environmentHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "seed": "42",
+    "generator": {
+      "type": "minecraft:noise"
+    },
+    "dimension": "minecraft:overworld",
+    "difficulty": "normal",
+    "biome": "minecraft:plains",
+    "position": [
+      0,
+      64,
+      0
+    ],
+    "player": {
+      "uuid": "synthetic-player",
+      "luck": 2,
+      "gameMode": "creative"
+    },
+    "gameTime": "1",
+    "dayTime": "1",
+    "weather": {
+      "raining": false,
+      "thundering": false
+    },
+    "gameRules": "{}",
+    "trials": 1,
+    "chunks": [
+      {
+        "x": 0,
+        "z": 0
+      }
+    ],
+    "lootTable": "survival:probe",
+    "context": {
+      "kind": "block",
+      "lootLuck": 0,
+      "tool": {
+        "id": "minecraft:diamond_pickaxe",
+        "Count": 1,
+        "tag": "{Enchantments:[{id:\"minecraft:silk_touch\",lvl:1s}]}"
+      },
+      "breakPerformed": false
+    },
+    "samples": [
+      {
+        "trial": 0,
+        "randomSeed": "43",
+        "outputs": [
+          {
+            "resource": "survival:no_source",
+            "amount": 2,
+            "stack": {
+              "id": "survival:no_source",
+              "Count": 2
+            }
+          }
+        ]
+      }
+    ],
+    "totals": {
+      "survival:no_source": 2
+    },
+    "limitations": [
+      "Synthetic finite sample; no actual block break, probability or renewable supply proof"
+    ]
+  },
+  {
+    "schemaVersion": 1,
+    "id": "finite-entity",
+    "kind": "loot",
+    "session": "offline-regression",
+    "generation": 1,
+    "minecraft": "1.20.1",
+    "loader": "forge",
+    "loaderVersion": "47.3.0",
+    "environmentHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "seed": "42",
+    "generator": {
+      "type": "minecraft:noise"
+    },
+    "dimension": "minecraft:overworld",
+    "difficulty": "normal",
+    "biome": "minecraft:plains",
+    "position": [
+      0,
+      64,
+      0
+    ],
+    "player": {
+      "uuid": "synthetic-player",
+      "luck": 2,
+      "gameMode": "creative"
+    },
+    "gameTime": "1",
+    "dayTime": "1",
+    "weather": {
+      "raining": false,
+      "thundering": false
+    },
+    "gameRules": "{}",
+    "trials": 1,
+    "chunks": [
+      {
+        "x": 0,
+        "z": 0
+      }
+    ],
+    "lootTable": "survival:probe",
+    "context": {
+      "kind": "entity",
+      "entity": "minecraft:zombie",
+      "spawnPerformed": false,
+      "lastDamagePlayer": "synthetic-player",
+      "damageSource": "player",
+      "luck": 2
+    },
+    "samples": [
+      {
+        "trial": 0,
+        "randomSeed": "43",
+        "outputs": [
+          {
+            "resource": "survival:no_source",
+            "amount": 2,
+            "stack": {
+              "id": "survival:no_source",
+              "Count": 2
+            }
+          }
+        ]
+      }
+    ],
+    "totals": {
+      "survival:no_source": 2
+    },
+    "limitations": [
+      "Synthetic finite sample; no actual block break, probability or renewable supply proof"
+    ]
+  },
+  {
+    "schemaVersion": 1,
+    "id": "finite-world",
+    "kind": "world",
+    "session": "offline-regression",
+    "generation": 1,
+    "minecraft": "1.20.1",
+    "loader": "forge",
+    "loaderVersion": "47.3.0",
+    "environmentHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "seed": "42",
+    "generator": {
+      "type": "minecraft:noise"
+    },
+    "dimension": "minecraft:overworld",
+    "difficulty": "normal",
+    "biome": "minecraft:plains",
+    "position": [
+      0,
+      64,
+      0
+    ],
+    "player": null,
+    "gameTime": "1",
+    "dayTime": "1",
+    "weather": {
+      "raining": false,
+      "thundering": false
+    },
+    "gameRules": "{}",
+    "trials": 1,
+    "chunks": [
+      {
+        "x": 0,
+        "z": 0,
+        "wasLoaded": true,
+        "minY": 0,
+        "maxY": 0,
+        "blockCounts": {
+          "block:minecraft:stone": 256
+        },
+        "biomes": [
+          "minecraft:plains"
+        ]
+      }
+    ],
+    "totals": {
+      "block:minecraft:stone": 256
+    },
+    "limitations": [
+      "Synthetic one-chunk one-height sample; never exhaustive absence or progression proof"
+    ]
+  }
+]

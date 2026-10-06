@@ -1,25 +1,21 @@
 # CraftFoundry
 
-CraftAtlas は `projects/craft-atlas` の独立した Git submodule です。[サバイバル入手経路 suite](docs/survival.md) は実際の Atlas データ形式・解析器を使い、不完全な外部入手源を unknown／未対応として扱います。`git submodule update --init projects/craft-atlas` 後に `npm run check:atlas` と `npm run test:atlas` を実行できます。今回の共通対応範囲は Minecraft 1.21.1 の Fabric／NeoForge で、オフライン成功は実ゲームの検証を意味しません。
+[English](README.md)
 
-npm パッケージ名は `craft-foundry`、CLI は `mch` です。[English](README.md) | [開発・配布手順](docs/distribution.md)。CraftAtlas は独立リポジトリで、固定コミットから未公開パッケージを生成して利用します。
+CraftFoundry は Minecraft Java Edition の Mod を、開発者・Agent・CI が同じ CLI からビルド・検証するハーネスです。npm パッケージは `craft-foundry`、CLI は `mch` です。プロジェクトの Gradle Wrapper を使い、配布 JAR のハッシュ、テスト結果、証拠を保存します。
 
-Minecraft Java Edition の Mod を、AI Agent・開発者・CI が同じ CLI からビルドし、検証結果と証拠を保存する TypeScript / Node.js ハーネスです。
+## 導入とプロジェクトへの接続
 
-Node.js 24 を使用します。利用するプロジェクトの Gradle Wrapper を尊重し、Minecraft・ローダー・依存関係は Gradle 側で固定します。Gradle、コンパイル、ゲームの Java は分けて設定できます。
+Node.js 24 を使用します。パッケージは未公開・`private: true` です。[配布・更新](docs/distribution.md) に従ってローカル tarball の版を固定して導入してください。[設定](docs/configuration.md)、[existing-project](templates/existing-project/README.md)、[multiloader](templates/multiloader/README.md) の例で既存 Gradle task と明示的な artifact path を接続できます。Minecraft・ローダー・依存関係は Gradle で固定し、実機の Java home・ツール・EULA 状態は ignored `harness.local.json` に保存します。
 
-次のコマンドはハーネスのソースリポジトリを開発・検証する場合の手順です。配布物を別プロジェクトへ導入する手順は [配布・更新](docs/distribution.md) を参照してください。
+| ターゲット | Gradle / コンパイル / ゲーム Java |
+| --- | --- |
+| NeoForge 1.21.1 | 21 / 21 / 21 |
+| Fabric 1.21.1 | 21 / 21 / 21 |
+| Forge 1.20.1 | 17 / 17 / 17 |
+| Fabric 1.20.1 | 21 / 17 / 17 |
 
-```console
-npm ci
-npm test
-npm run build
-node dist/cli/main.js --help
-```
-
-導入先ではパッケージの版を開発依存として固定し、`mch` を呼び出します。プロジェクトへの接続は [設定契約](docs/configuration.md) を参照してください。
-
-4 ターゲットの検証例はルートの共有設定と [推奨構成](templates/multiloader/README.md) にあります。独立した Gradle ビルドと共通 Java ソースを含みます。既存 Mod のソース構成を移行せずに接続する例は [existing-project](templates/existing-project/README.md) を参照してください。
+これは設定済み fixture のターゲットです。正確な pin と検証の制約は [対応状況](docs/support.md) を参照してください。他の組み合わせの対応は推測しません。
 
 ```console
 mch doctor --json
@@ -31,22 +27,19 @@ mch test --all --profile release --json
 mch report --run <run-id> --json
 ```
 
-実行結果は `.harness/runs/<run-id>/report.json` に、CI 向けの判定は `junit.xml` に保存します。JSON 出力時の標準出力は一つの JSON オブジェクトに限定し、進捗は標準エラーへ送ります。終了コードは成功 `0`、不合格 `1`、設定・環境不備 `2` です。
+レポートと JUnit は `.harness/runs/<run-id>/` に保存されます。終了コードは成功 `0`、不合格 `1`、設定・環境不備 `2` です。JSON mode は標準出力に一つの object、標準エラーに進捗を出力します。必須ケースの未対応・skip・不安定な再試行・検出0件はリリース成功になりません。
 
-必須テストの未対応・未実行・検出0件はリリース成功になりません。ダミープロセスによるハーネス契約テストと実ゲームの動作確認は区別しています。対応範囲と制約は [対応状況](docs/support.md) を参照してください。
+同梱 Agent Skills は `mch skills install --destination .agents/skills --json` で導入します。installer は利用者の編集を維持します。固定 client backend は `mch tools install mc-pilot --project <directory> --json` で導入し、返された path をローカル設定に登録します。[Skills](docs/skills.md)、[ツール](docs/tools.md)、[Linux](docs/linux.md)、[CI](docs/ci.md) を参照してください。
 
-同梱 Skills は `skills/` にあります。コピーして導入する際は利用者の編集を維持し、CLI と同じ版の Skills・スキーマを使ってください。`harness.local.json`、`.harness/`、個人のゲーム環境は配布物に含めません。
+## 入手方法の変更をレビューする
 
-固定バックエンドは `mch tools install mc-pilot --project <directory> --json`、Skills は `mch skills install --destination <directory> --json` で導入できます。初期設定は [ツール](docs/tools.md) と [配布・更新](docs/distribution.md)、OS ごとの設定は [Linux](docs/linux.md) を参照してください。
+[取得定義テンプレート](templates/acquisition/README.md) は独自 serializer・機械・その他の入手源を現在の [CraftAtlas](https://github.com/SOL3675/CraftAtlas) capture と照合する手順です。リポジトリ専用 [survival suite](docs/survival.md) は NeoForge／Fabric 1.21.1 と Forge／Fabric 1.20.1 に対応します。npm パッケージにはガイドとテンプレートが同梱され、runner の実行には Foundry リポジトリと pin 済み Atlas submodule が必要です。
 
-固定 Java と Xvfb による CI 設定と成功・失敗時の証拠回収は [CI](docs/ci.md)、配布用 workflow は `templates/ci` にあります。
+バージョン限定定義の作成前に effective datapack JSON、source pack ID、byte hash、override stack を確認します。resource path は 1.21.1 が `recipe`、1.20.1 が `recipes` です。raw data、JEI／EMI の表示、有限な loot／block／entity／world 観測は証拠であり、実行可能性・網羅的な不在・持続的供給・進行を証明しません。未知の hook と不完全な coverage は unknown／未対応を維持します。Forge の fluid runtime は未検証です。
 
-## Mod ごとの取得定義
-
-独自 serializer・機械・その他のアイテム取得方法は、[取得定義テンプレート](templates/acquisition/README.md) を使って Mod ごとのバージョン限定定義と回帰ケースを記述できます。[survival 開発チェック](docs/survival.md#per-mod-acquisition-definitions-and-development-checks) は未対応・未記載・材料不足を明示します。pin 済み Atlas に対する通常検証と Windows/Ubuntu CI はローカル source 指定なしで実行します。次の Atlas 変更の明示的なローカル検証には `--atlas-source` を指定できます。Java hook の意味は推測せず unknown を維持します。
-
-定義の作成前に、稼働中サーバーの datapack 証拠と runtime entry を照合します。effective JSON、byte hash、source pack ID、見える範囲の override stack は入手検証の証拠に保持されます。raw resource だけでは実行可能な経路や閉じた coverage を証明できず、source-only／独自 API の経路には明示的なレビューが必要です。対応する `atlas datapack` の問い合わせと任意の custom directory の capture 手順はテンプレートに記載しています。
+ハーネス自体の開発・テスト fixture・配布物の生成は [開発・配布](docs/distribution.md) に記載しています。
 
 ## ライセンス
+
 
 CraftFoundry 独自のコードとドキュメントには [MIT](LICENSE) を適用します（Copyright (c) 2026 SOL3675）。個別のライセンス・著作権表示があるファイルは、その条件と表示を維持します。既存 fixture の MIT 表示と Gradle Wrapper の Apache-2.0 ヘッダー・同梱表示は変更しません。依存ライブラリ、取得するツール、Minecraft、他の Mod はそれぞれのライセンスに従います。npm パッケージには LICENSE と既存の fixture・Gradle 表示を、fixture のバイナリ・ソース JAR には既存の MIT 本文を `META-INF/LICENSE` として同梱します。npm パッケージは引き続き未公開・`private: true` です。

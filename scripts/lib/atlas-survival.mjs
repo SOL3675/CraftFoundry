@@ -13,6 +13,7 @@ import { Ajv } from 'ajv';
 /** @typedef {{schemaVersion:1, snapshot:string, target:{minecraft:string,loader:string}, scenario:Scenario, providers:Provider[], externalSources:Survey[], definitions?:string[], mechanisms?:Mechanism[], mod?:string, items?:string[], cases?:{id:string,item:string,expected:'reachable'|'unreachable',without?:string[]}[]}} SurvivalConfig */
 
 export const externalKinds = ['loot', 'drops', 'harvesting', 'worldgen', 'trades', 'other'];
+export const supportedTargets = ['fabric:1.21.1', 'neoforge:1.21.1', 'fabric:1.20.1', 'forge:1.20.1'];
 const ajv = new Ajv({ allErrors: true, strict: false });
 const check = ajv.compile(JSON.parse(readFileSync(new URL('../../schemas/atlas-survival.schema.json', import.meta.url), 'utf8')));
 
@@ -88,8 +89,16 @@ export function evaluateSurvival(atlas, snapshot, input, selection = {}, packs =
   /** @type {string[]} */
   const incomplete = [];
   if (snapshot.minecraft !== config.target.minecraft || snapshot.loader !== config.target.loader) throw new Error('Snapshot Minecraft/loader does not match configured target');
-  if (snapshot.minecraft !== '1.21.1' || !['fabric', 'neoforge'].includes(snapshot.loader)) incomplete.push(`Unsupported Atlas/Foundry target: ${snapshot.loader} ${snapshot.minecraft}; supported: Fabric/NeoForge 1.21.1`);
-  if (snapshot.recipes.some(r => r.error || r.data === null)) incomplete.push('Recipe capture contains failed or missing serialized records; definitions cannot complete capture');
+  if (!supportedTargets.includes(`${snapshot.loader}:${snapshot.minecraft}`)) incomplete.push(`Unsupported Atlas/Foundry target: ${snapshot.loader} ${snapshot.minecraft}; supported: Fabric/NeoForge 1.21.1, Forge/Fabric 1.20.1`);
+  if (snapshot.recipes.some(r => r.error || r.serialization?.error || r.data === null)) incomplete.push('Recipe capture contains failed or missing serialized records; network bytes alone and definitions cannot complete semantic capture');
+  const observations = snapshot.world?.observations ?? [];
+  for (const observation of observations) {
+    if (!observation || typeof observation !== 'object' || Array.isArray(observation)) throw new Error('Invalid finite observation record');
+    if (snapshot.minecraft === '1.20.1') atlas.validate('observation-1.20.1', observation);
+    if (observation.session !== snapshot.session || observation.generation !== snapshot.generation || observation.environmentHash !== atlas.hash(snapshot.environment)) throw new Error('Stale finite observation session/generation/environment');
+    if (snapshot.minecraft === '1.20.1' && (observation.minecraft !== snapshot.minecraft || observation.loader !== snapshot.loader || observation.loaderVersion !== snapshot.loaderVersion)) throw new Error('Finite observation does not match snapshot target');
+  }
+  if (observations.length) incomplete.push('Finite observations are partial samples; they cannot prove exhaustive coverage, absence, sustainable supply or survival progression');
   if (snapshot.completion.status !== 'complete' || snapshot.completion.errors.length) incomplete.push('Snapshot capture is incomplete');
   if (snapshot.datapack) {
     const rawCoverage = snapshot.coverage.filter(c => c.dataset === 'datapack');
@@ -125,6 +134,11 @@ export function evaluateSurvival(atlas, snapshot, input, selection = {}, packs =
   const results = { schemaVersion: 1, cases: details.map(c => ({ id: c.id, status: c.status, message: `${c.item}: expected ${c.expected}, Atlas ${c.analysis.status}; ${[...c.incomplete, ...c.analysis.unknown, ...c.analysis.stopReasons.map(r => r.message)].join('; ')}` })) };
   return { results, evidence: { schemaVersion: 1, snapshotId: snapshot.id, snapshotHash: atlas.hash(snapshot), modelHash: model.contentHash, normalizerVersion: model.normalizerVersion, definitions: packs.map(pack => ({ id: pack.id, version: pack.version, hash: atlas.hash(pack) })), originalCoverage: originalModel.coverage, coverage: model.coverage, development, definitionDiagnostics: model.diagnostics.filter(d => d.rule.startsWith('definition-')),
     datapack: model.datapack ?? null,
+    recipes: snapshot.recipes,
+    viewer: snapshot.viewer ?? null,
+    world: snapshot.world ?? null,
+    observationProcesses: model.processes.filter(p => p.type === 'minecraft:observation'),
+    sourceEvidence: model.evidence,
     resourceDiagnostics: model.diagnostics.filter(d => d.rule.startsWith('datapack-') || d.rule === 'recipe-resource-missing'),
     definitionProcesses: model.processes.filter(p => p.evidence.some(e => e.startsWith('definition:'))),
     configHash: atlas.hash(config), scenario, externalSources: config.externalSources, details, limitations: [...new Set(details.flatMap(c => c.analysis.limitations))] } };

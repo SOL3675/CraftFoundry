@@ -42,9 +42,9 @@ jobs:
         run: node .github/scripts/prepare-atlas.mjs
       - run: node .harness/ci/package-manager/node_modules/npm/bin/npm-cli.js run check:atlas
       - run: node .harness/ci/package-manager/node_modules/npm/bin/npm-cli.js run test:atlas
-      - name: Mod definitions and datapack provenance regressions through the pinned submodule
+      - name: Four-target definitions, datapack and finite observation regressions through the pinned submodule
         run: node .harness/ci/package-manager/node_modules/npm/bin/npm-cli.js run test:atlas:definitions
-      - name: Offline acquisition regression (NeoForge 1.21.1; tests also cover Fabric 1.21.1)
+      - name: Offline acquisition regression (NeoForge 1.21.1; tests cover all four supported targets)
         run: node scripts/atlas-survival.mjs --config tests/atlas/fixtures/suite.json --results .harness/atlas-survival/results.json
       - name: Custom acquisition positive and missing-input regressions
         run: node scripts/atlas-survival.mjs --config tests/atlas-definitions/fixtures/suite.json --results .harness/atlas-survival/custom-results.json
