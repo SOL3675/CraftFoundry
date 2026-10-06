@@ -171,7 +171,7 @@ export function acquisitionDiagnostics(model, config) {
   }
   for (const c of model.coverage.filter(c => c.dataset === 'datapackInterpretation' && c.status !== 'complete')) report('raw-acquisition-review', c.type, 'Custom-directory resources are raw evidence only; review the custom API and author explicit definition additions and regression cases; raw coverage and external surveys cannot close this scope');
   for (const d of model.diagnostics.filter(d => d.rule.startsWith('definition-') && !['definition-runtime-contradiction'].includes(d.rule))) report(d.rule, d.target, `${d.message}; fix the selected definition pack and add/update regression cases`);
-  for (const p of model.processes.filter(p => p.interpretation === 'opaque' && p.enabled)) report('unmapped-acquisition', p.id, `Unsupported serializer/source ${p.type} (${p.id}); add an evidence-backed definition and mechanism, or retain unknown with a reason; add/update positive and missing-input tests`);
+  for (const p of model.processes.filter(p => p.interpretation === 'opaque' && p.enabled && p.type !== 'minecraft:observation')) report('unmapped-acquisition', p.id, `Unsupported serializer/source ${p.type} (${p.id}); add an evidence-backed definition and mechanism, or retain unknown with a reason; add/update positive and missing-input tests`);
   for (const p of model.processes.filter(p => p.evidence.some(e => e.startsWith('definition:')))) {
     if (!(config.mechanisms ?? []).some(m => m.processes.includes(p.id))) report('undeclared-acquisition', p.id, `Definition process ${p.id} needs a mechanisms entry and regression cases`);
   }

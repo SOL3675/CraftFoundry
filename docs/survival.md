@@ -122,7 +122,7 @@ The Atlas pin is the reviewed remote merge of PR #6 (`817de1959b23c5dad8a250e7be
 
 On SOL-SUBMARINE, first restore the committed Foundry candidate and its actual gitlink, then run `npm ci --ignore-scripts`, all three Atlas integration checks above, `npm run check` and `npm pack`. Use a separate disposable checkout of Atlas at that exact merged SHA for candidate package validation. Bootstrap/install its original immutable dependency first, then copy the candidate tarball into its ignored `.harness/vendor/` and run `pnpm add -D craft-foundry@file:./.harness/vendor/craft-foundry-0.1.6.tgz --ignore-scripts` there. This explicit disposable consumer overlay changes only that checkout's manifest/lock; do not update the canonical Atlas source pin, commit the overlay or rerun bootstrap over the candidate. Record candidate Foundry commit, package SHA-256, the consumer overlay and original dependency identity with the Run.
 
-Use actual absolute `java17` and `java21` homes, existing EULA acceptance, mc-pilot 0.15.0 and the verified locked tools in ignored local configuration. Follow Atlas's [development procedures](../projects/craft-atlas/docs/development.md#forge-and-fabric-1201-validation), including the 1.21.1 pack-fetch prerequisites. Run:
+Use actual absolute `java17` and `java21` homes, existing EULA acceptance, mc-pilot 0.15.0 and the verified locked tools in ignored local configuration. Follow Atlas's [development procedures](https://github.com/SOL3675/CraftAtlas/blob/main/docs/development.md#forge-and-fabric-1201-validation), including the 1.21.1 pack-fetch prerequisites. Run:
 
 ```console
 pnpm check

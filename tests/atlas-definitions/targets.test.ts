@@ -72,6 +72,7 @@ for (const target of targets) {
     assert.deepEqual(result.evidence.recipes, f.snapshot.recipes);
     assert.deepEqual(result.evidence.datapack, f.snapshot.datapack);
     assert.equal(result.evidence.observationProcesses.length, 4);
+    assert.ok(!result.evidence.development.some(d => d.rule === 'unmapped-acquisition' && d.target.startsWith('observation:')), 'finite display evidence must not prompt invented executable definitions');
     for (const process of result.evidence.observationProcesses) {
       assert.equal(process.execution, 'display'); assert.equal(process.interpretation, 'opaque');
       assert.deepEqual(process.raw, f.observations.find((o: { id: string }) => `observation:${o.id}` === process.id));
