@@ -34,7 +34,7 @@
     "test": "npm run build && node --test tests/*.test.ts",
     "check": "npm run typecheck && npm test",
     "prepack": "npm run build",
-    "check:atlas": "tsc -p tsconfig.atlas.json",
+    "check:atlas": "npm run build && tsc -p tsconfig.atlas.json",
     "test:atlas": "npm run build && node --test tests/atlas/*.test.ts",
     "test:atlas:definitions": "npm run build && node scripts/test-atlas-definitions.mjs",
     "test:consumer": "node scripts/test-package-consumer.mjs"
