@@ -8,6 +8,8 @@ The driver prepares a new, empty session below the Run, deploys the recorded dis
 
 Commands must be single lines, and patterns must match the command's actual response. Include `{nonce}` in your seed data and read responses to prevent an unrelated response from satisfying a probe. The driver reads output only after each command's mark. For example:
 
+An optional `failurePattern` on each probe recognizes an explicit negative response and ends the probe immediately with that response in its diagnostic. It uses the same nonce and output mark as the success pattern; it does not replace the required success match. Existing probes without this optional field retain their timeout behavior. Older strict configuration readers reject this new field; upgrade the installed package and Skills together before using it.
+
 ```json
 {
   "driver": "server-persistence",

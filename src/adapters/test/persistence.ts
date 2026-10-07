@@ -12,12 +12,13 @@ export async function runServerPersistence(loaded: LoadedConfig, target: string,
   const cases: CaseResult[] = [], logs: string[] = [], nonce = randomUUID();
   const transcript: unknown[] = [];
   let stage = 'persistence.seed';
-  const query = async (probe: { command: string; pattern: string }) => {
+  const query = async (probe: { command: string; pattern: string; failurePattern?: string }) => {
     const mark = server.mark(), command = probe.command.replaceAll('{nonce}', nonce), pattern = probe.pattern.replaceAll('{nonce}', nonce);
     server.command(command);
     const launch = cases.some(c => c.id === 'persistence.stopped') ? 2 : 1;
     try {
-      const output = await server.waitForOutput(new RegExp(pattern), loaded.local.timeouts?.test ?? 120_000, mark);
+      const failure = probe.failurePattern?.replaceAll('{nonce}', nonce);
+      const output = await server.waitForOutput(new RegExp(pattern), loaded.local.timeouts?.test ?? 120_000, mark, failure ? new RegExp(failure) : undefined);
       transcript.push({ launch, command, output });
     } catch (error) { transcript.push({ launch, command, error: (error as Error).message }); throw error; }
   };

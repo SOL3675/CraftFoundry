@@ -122,7 +122,7 @@ export class OwnedServer {
     this.write(`${command}\n`);
   }
   mark(): number { return this.outputLength; }
-  async waitForOutput(pattern: RegExp, timeoutMs: number, after = 0): Promise<string> {
+  async waitForOutput(pattern: RegExp, timeoutMs: number, after = 0, failurePattern?: RegExp): Promise<string> {
     if (!this.done) throw new Error('Server has not started');
     let listener: (() => void) | undefined;
     let timer: NodeJS.Timeout | undefined;
@@ -130,7 +130,12 @@ export class OwnedServer {
       return await new Promise<string>((resolve, reject) => {
         listener = () => {
           const start = Math.max(0, after - (this.outputLength - this.output.length));
-          pattern.lastIndex = 0; const match = pattern.exec(this.output.slice(start));
+          const output = this.output.slice(start);
+          if (failurePattern) {
+            failurePattern.lastIndex = 0; const failure = failurePattern.exec(output);
+            if (failure) { reject(new Error(`Server probe reported failure: ${failure[0]}`)); return; }
+          }
+          pattern.lastIndex = 0; const match = pattern.exec(output);
           if (match) resolve(match[0]);
         };
         this.listeners.add(listener); listener();

@@ -156,6 +156,7 @@ export async function loadConfig(projectRoot: string): Promise<LoadedConfig> {
       if (new Set(suite.persistence.assertions.map(a => a.id)).size !== suite.persistence.assertions.length) diagnostics.push(`suites/${id}: duplicate restoration assertion ID`);
       for (const probe of [...suite.persistence.seed, ...suite.persistence.assertions]) {
         try { new RegExp(probe.pattern.replaceAll('{nonce}', 'probe')); } catch { diagnostics.push(`suites/${id}: invalid persistence pattern`); }
+        if (probe.failurePattern) try { new RegExp(probe.failurePattern.replaceAll('{nonce}', 'probe')); } catch { diagnostics.push(`suites/${id}: invalid persistence failure pattern`); }
       }
     }
     if (suite.results) checkRelative(suite.results, `suites/${id}/results`, diagnostics);

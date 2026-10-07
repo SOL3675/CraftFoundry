@@ -418,29 +418,34 @@
         "seed": [
           {
             "command": "fixture persistence seed {nonce}",
-            "pattern": "MCH_PERSISTENCE seed {nonce} PASS"
+            "pattern": "MCH_PERSISTENCE seed {nonce} PASS",
+            "failurePattern": "MCH_PERSISTENCE seed {nonce} FAIL"
           }
         ],
         "assertions": [
           {
             "id": "persistence.restore.block",
             "command": "fixture persistence block {nonce}",
-            "pattern": "MCH_PERSISTENCE block {nonce} PASS"
+            "pattern": "MCH_PERSISTENCE block {nonce} PASS",
+            "failurePattern": "MCH_PERSISTENCE block {nonce} FAIL"
           },
           {
             "id": "persistence.restore.counter",
             "command": "fixture persistence counter {nonce}",
-            "pattern": "MCH_PERSISTENCE counter {nonce} PASS"
+            "pattern": "MCH_PERSISTENCE counter {nonce} PASS",
+            "failurePattern": "MCH_PERSISTENCE counter {nonce} FAIL"
           },
           {
             "id": "persistence.restore.inventory",
             "command": "fixture persistence inventory {nonce}",
-            "pattern": "MCH_PERSISTENCE inventory {nonce} PASS"
+            "pattern": "MCH_PERSISTENCE inventory {nonce} PASS",
+            "failurePattern": "MCH_PERSISTENCE inventory {nonce} FAIL"
           },
           {
             "id": "persistence.restore.saved",
             "command": "fixture persistence saved {nonce}",
-            "pattern": "MCH_PERSISTENCE saved {nonce} PASS"
+            "pattern": "MCH_PERSISTENCE saved {nonce} PASS",
+            "failurePattern": "MCH_PERSISTENCE saved {nonce} FAIL"
           }
         ]
       },

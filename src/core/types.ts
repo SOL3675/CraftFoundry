@@ -29,7 +29,7 @@ export interface SuiteConfig {
   results?: string;
   runtime?: string;
   pilot?: { backend: string; helper: string };
-  persistence?: { seed: { command: string; pattern: string }[]; assertions: { id: string; command: string; pattern: string }[] };
+  persistence?: { seed: { command: string; pattern: string; failurePattern?: string }[]; assertions: { id: string; command: string; pattern: string; failurePattern?: string }[] };
 }
 export interface RuntimeConfig {
   kind: 'server' | 'client' | 'multiplayer';

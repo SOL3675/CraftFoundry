@@ -58,6 +58,7 @@
                       "minLength": 1,
                       "pattern": "^[^\\r\\n\\u0000]+$"
                     },
+                    "failurePattern": { "type": "string", "minLength": 1 },
                     "pattern": {
                       "type": "string",
                       "minLength": 1
@@ -81,6 +82,7 @@
                       "minLength": 1,
                       "pattern": "^[^\\r\\n\\u0000]+$"
                     },
+                    "failurePattern": { "type": "string", "minLength": 1 },
                     "pattern": {
                       "type": "string",
                       "minLength": 1

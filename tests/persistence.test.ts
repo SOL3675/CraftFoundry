@@ -15,13 +15,14 @@ async function contract(mode = '') {
 const count=existsSync('boots') ? Number(readFileSync('boots','utf8'))+1 : 1; writeFileSync('boots',String(count));
 writeFileSync('pid-'+count,String(process.pid));
 let state=existsSync('disk-state') ? readFileSync('disk-state','utf8') : '';
-if(process.argv[2]==='forget' && count===2) state='';
+if(['forget','forget-diagnostic'].includes(process.argv[2]) && count===2) state='';
+if(process.argv[2]==='forget-diagnostic')console.log('RESTORED old FAIL');
 if(process.argv[2]==='fail-start')process.exit(1);
 process.stdout.write('Done ready\\n');
 let buffer=''; process.stdin.on('data',b=>{buffer+=b.toString();let index;
 while((index=buffer.indexOf('\\n'))>=0){const command=buffer.slice(0,index);buffer=buffer.slice(index+1);
 if(command.startsWith('seed ')){state=command.slice(5);console.log('SEEDED '+state);}
-if(command.startsWith('read ') && !(process.argv[2]==='pause-restoration' && count===2)){console.log('RESTORED '+(state===command.slice(5) ? state : 'FAIL'));}
+if(command.startsWith('read ') && !(process.argv[2]==='pause-restoration' && count===2)){console.log('RESTORED '+(state===command.slice(5) ? state : process.argv[2]==='forget-diagnostic' ? command.slice(5)+' FAIL' : 'FAIL'));}
 if(command==='save-all flush'){console.log('Saved the game');}
 if(command==='stop' && process.argv[2]!=='hang'){writeFileSync('disk-state',state);process.exit(0);}
 }});`);
@@ -59,6 +60,21 @@ test('lost restoration fails and skips final success; cleanup stops the second p
     const pid = Number(await readFile(path.join(c.directory, 'pid-2'), 'utf8'));
     assert.throws(() => process.kill(pid, 0), /ESRCH/);
   } finally { await rm(c.root, { recursive: true, force: true }); }
+});
+test('explicit failure response ends restoration promptly and retains the nonce-specific diagnostic', async () => {
+  const c = await contract('forget-diagnostic'); c.loaded.local.timeouts.test = 60_000;
+  c.suite.persistence.assertions[0].failurePattern = 'RESTORED {nonce} FAIL';
+  try {
+    const started = Date.now();
+    const result = await runServerPersistence(c.loaded,'target',c.runtime,c.suite,c.artifacts,c.root,c.directory);
+    assert.ok(Date.now()-started < 5000, 'An explicit failure must not wait for the 60 second deadline');
+    assert.equal(result.cases.find(c=>c.id==='persistence.seed')?.status,'passed');
+    const failed = result.cases.find(c=>c.id==='persistence.restore.custom');
+    assert.equal(failed?.status,'failed'); assert.match(failed!.message!,/Server probe reported failure: RESTORED [0-9a-f-]+ FAIL/);
+    const evidence = JSON.parse(await readFile(path.join(c.directory,'persistence.json'),'utf8'));
+    assert.match(evidence.transcript.at(-1).error,new RegExp(evidence.nonce+' FAIL'));
+    assert.throws(()=>process.kill(Number(readFileSync(path.join(c.directory,'pid-2'),'utf8')),0),/ESRCH/);
+  } finally { await rm(c.root,{recursive:true,force:true}); }
 });
 test('shutdown timeout cannot restart or pass, and kills the owned process', async () => {
   const c = await contract('hang');
