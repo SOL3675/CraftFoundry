@@ -207,6 +207,31 @@
           "evidence"
         ]
       }
+    },
+    "captureRuntime": {
+      "type": "string",
+      "minLength": 1
+    },
+    "captureFiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "source": {
+            "type": "string",
+            "minLength": 1
+          },
+          "destination": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "source",
+          "destination"
+        ]
+      }
     }
   },
   "required": [

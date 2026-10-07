@@ -2,6 +2,7 @@ import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { assertContainedPath } from '../core/paths.js';
 import type { TestCase } from './types.js';
+import { sha256File } from '../core/cache.js';
 
 function resolvePointer(value: unknown, pointer: string): unknown {
   for (const token of pointer === '' ? [] : pointer.slice(1).split('/')) {
@@ -49,7 +50,20 @@ export async function validateCaseDetails(cases: TestCase[], referenceRoot: stri
     const root = files.get(file);
     validateDiagnosticCounts(root, resolvePointer(root, test.detail.pointer), test);
   }
-  return [...files.keys()];
+  const retained = new Set(files.keys());
+  for (const [companion, root] of files) {
+    const capture = (root as { captureEvidence?: { schemaVersion: number; files: Array<{ file: string; sha256: string }> } })?.captureEvidence;
+    if (!capture) continue;
+    if (capture.schemaVersion !== 1 || !Array.isArray(capture.files) || !capture.files.length) throw new Error('Missing or unsupported capture evidence manifest');
+    for (const entry of capture.files) {
+      if (typeof entry.file !== 'string' || !entry.file || path.isAbsolute(entry.file) || entry.file.includes('\\') || !/^[a-f0-9]{64}$/.test(entry.sha256)) throw new Error('Invalid capture evidence identity');
+      const target = path.resolve(path.dirname(companion), entry.file);
+      await assertContainedPath(allowedRoot, target);
+      if (!(await stat(target)).isFile() || await sha256File(target) !== entry.sha256) throw new Error(`Missing or tampered capture evidence: ${entry.file}`);
+      retained.add(target);
+    }
+  }
+  return [...retained];
 }
 
 /** Input references are relative to the result file; retained references to the Run.
@@ -69,5 +83,6 @@ export async function retainResultDetails(cases: TestCase[], resultFile: string,
     await assertContainedPath(runRoot, resultFile);
     evidence.add(path.relative(runRoot, resultFile).replaceAll('\\', '/'));
   }
+  for (const file of files) evidence.add(path.relative(runRoot, file).replaceAll('\\', '/'));
   return [...evidence];
 }

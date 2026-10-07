@@ -144,12 +144,20 @@ export async function loadConfig(projectRoot: string): Promise<LoadedConfig> {
   for (const [id, suite] of Object.entries(config.suites)) {
     checkId(id, `suites/${id}`, diagnostics);
     if (suite.driver === 'gradle' && !suite.task) diagnostics.push(`suites/${id}/task: a Gradle suite needs a task mapping key`);
-    if (['process', 'server-smoke', 'client-smoke', 'fixture-multiplayer', 'fixture-multi-client'].includes(suite.driver) && !suite.runtime) diagnostics.push(`suites/${id}/runtime: a process suite needs a runtime reference`);
+    if (['process', 'server-smoke', 'server-persistence', 'client-smoke', 'fixture-multiplayer', 'fixture-multi-client'].includes(suite.driver) && !suite.runtime) diagnostics.push(`suites/${id}/runtime: a process suite needs a runtime reference`);
     if (['client-smoke', 'fixture-multiplayer', 'fixture-multi-client'].includes(suite.driver) && !suite.pilot) diagnostics.push(`suites/${id}/pilot: a pilot backend and helper must be declared`);
     if (suite.pilot) {
       for (const tool of [suite.pilot.backend, suite.pilot.helper]) if (!Object.hasOwn(lock.tools, tool)) diagnostics.push(`suites/${id}/pilot: tool ${tool} must be pinned in harness.lock.json`);
     }
     if (suite.runtime && !Object.hasOwn(config.runtimes, suite.runtime)) diagnostics.push(`suites/${id}/runtime: unknown runtime ${suite.runtime}`);
+    if (suite.driver === 'server-persistence' && !suite.persistence) diagnostics.push(`suites/${id}: persistence probes required`);
+    if (suite.persistence) {
+      if (suite.driver !== 'server-persistence') diagnostics.push(`suites/${id}: persistence probes require server-persistence driver`);
+      if (new Set(suite.persistence.assertions.map(a => a.id)).size !== suite.persistence.assertions.length) diagnostics.push(`suites/${id}: duplicate restoration assertion ID`);
+      for (const probe of [...suite.persistence.seed, ...suite.persistence.assertions]) {
+        try { new RegExp(probe.pattern.replaceAll('{nonce}', 'probe')); } catch { diagnostics.push(`suites/${id}: invalid persistence pattern`); }
+      }
+    }
     if (suite.results) checkRelative(suite.results, `suites/${id}/results`, diagnostics);
   }
   for (const [id, runtime] of Object.entries(config.runtimes)) {

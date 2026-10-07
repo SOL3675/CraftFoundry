@@ -37,6 +37,7 @@
         "unit",
         "server-gametest",
         "server-smoke",
+        "server-persistence",
         "client-smoke",
         "multiplayer",
         "multi-client"
@@ -45,7 +46,12 @@
         "fabric-gametest-api-v1:empty.fixturegametests.counter_initial": "fixture.counter_initial",
         "fabric-gametest-api-v1:empty.fixturegametests.counter_persistence": "fixture.counter_persistence"
       },
-      "loaderVersion": "0.16.14"
+      "loaderVersion": "0.16.14",
+      "suiteBindings": {
+        "server-persistence": {
+          "runtime": "fabric-server-persistence"
+        }
+      }
     }
   },
   "suites": {
@@ -146,6 +152,56 @@
         "real-client",
         "multi-client"
       ]
+    },
+    "server-persistence": {
+      "driver": "server-persistence",
+      "requiredCapabilities": [
+        "dedicated-server",
+        "fixture-persistence"
+      ],
+      "expectedTests": [
+        "persistence.seed",
+        "persistence.saved",
+        "persistence.stopped",
+        "persistence.restarted",
+        "persistence.restore.block",
+        "persistence.restore.counter",
+        "persistence.restore.inventory",
+        "persistence.restore.saved",
+        "persistence.final-stop"
+      ],
+      "minTests": 9,
+      "persistence": {
+        "seed": [
+          {
+            "command": "fixture persistence seed {nonce}",
+            "pattern": "MCH_PERSISTENCE seed {nonce} PASS"
+          }
+        ],
+        "assertions": [
+          {
+            "id": "persistence.restore.block",
+            "command": "fixture persistence block {nonce}",
+            "pattern": "MCH_PERSISTENCE block {nonce} PASS"
+          },
+          {
+            "id": "persistence.restore.counter",
+            "command": "fixture persistence counter {nonce}",
+            "pattern": "MCH_PERSISTENCE counter {nonce} PASS"
+          },
+          {
+            "id": "persistence.restore.inventory",
+            "command": "fixture persistence inventory {nonce}",
+            "pattern": "MCH_PERSISTENCE inventory {nonce} PASS"
+          },
+          {
+            "id": "persistence.restore.saved",
+            "command": "fixture persistence saved {nonce}",
+            "pattern": "MCH_PERSISTENCE saved {nonce} PASS"
+          }
+        ]
+      },
+      "runtime": "fabric-server-persistence"
     }
   },
   "runtimes": {
@@ -157,6 +213,24 @@
       "command": {
         "executable": "{java:game}",
         "args": [
+          "-Xmx1G",
+          "-jar",
+          "{tool:fabric-server-1.20.1}",
+          "nogui"
+        ]
+      },
+      "readyPattern": "Done \\(.*\\)! For help"
+    },
+    "fabric-server-persistence": {
+      "kind": "server",
+      "capabilities": [
+        "dedicated-server",
+        "fixture-persistence"
+      ],
+      "command": {
+        "executable": "{java:game}",
+        "args": [
+          "-Dmch.fixture.persistence=true",
           "-Xmx1G",
           "-jar",
           "{tool:fabric-server-1.20.1}",

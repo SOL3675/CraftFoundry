@@ -35,6 +35,7 @@ public final class FixtureMod implements ModInitializer {
         COUNTER_SCREEN = Registry.register(Registries.SCREEN_HANDLER, id("counter"), new ScreenHandlerType<>(CounterScreenHandler::new, FeatureFlags.VANILLA_FEATURES));
         CommandRegistrationCallback.EVENT.register((dispatcher, access, environment) -> dispatcher.register(
             CommandManager.literal("fixture").requires(source -> source.hasPermissionLevel(2))
+                .then(PersistenceFixture.commands())
                 .then(CommandManager.literal("state").then(CommandManager.argument("pos", BlockPosArgumentType.blockPos()).executes(context -> {
                     var pos = BlockPosArgumentType.getLoadedBlockPos(context, "pos");
                     var entity = context.getSource().getWorld().getBlockEntity(pos);

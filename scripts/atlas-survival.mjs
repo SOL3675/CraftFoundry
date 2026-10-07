@@ -2,6 +2,7 @@ import { readFileSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import { captureForSurvival, CaptureUnsupported } from './lib/atlas-capture.mjs';
 import { loadAtlas, validateConfig, evaluateSurvival, loadDefinitions } from './lib/atlas-survival.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -32,16 +33,22 @@ try {
   if (execFileSync('git', ['-C', atlasRoot, 'status', '--porcelain', '--untracked-files=normal'], { encoding: 'utf8' }).trim()) throw new Error('Atlas checkout has source changes; restore a clean pinned submodule');
   const atlas = await loadAtlas(root, localSource ? atlasRoot : undefined);
   const packs = loadDefinitions(atlas, config, configFile);
-  const snapshot = atlas.readSnapshot(resolve(dirname(configFile), config.snapshot));
+  const requiredIdentity = Boolean(process.env.MCH_TARGET && process.env.MCH_PROJECT_ROOT);
+  let captureUnsupported;
+  const captured = config.captureRuntime ? await captureForSurvival(atlas, config.captureRuntime, process.env.MCH_PROJECT_ROOT ?? dirname(configFile), process.env.MCH_RUN_ROOT, dirname(output), process.env.MCH_TARGET, config.captureFiles).catch(error => {
+    if (!(error instanceof CaptureUnsupported)) throw error;
+    captureUnsupported = error.message; return undefined;
+  }) : undefined;
+  const snapshot = captured?.snapshot ?? atlas.readSnapshot(resolve(dirname(configFile), config.snapshot));
   if (process.env.MCH_TARGET && process.env.MCH_PROJECT_ROOT) {
     const harness = JSON.parse(readFileSync(resolve(process.env.MCH_PROJECT_ROOT, 'harness.config.json'), 'utf8'));
     const target = harness.targets?.[process.env.MCH_TARGET];
     if (!target || target.minecraft !== snapshot.minecraft || target.loader !== snapshot.loader || target.loaderVersion && target.loaderVersion !== snapshot.loaderVersion) throw new Error('Snapshot does not match the active harness target');
   }
-  const { results, evidence } = evaluateSurvival(atlas, snapshot, config, { mod: options['--mod'], items: options['--items']?.split(',') }, packs);
+  const { results, evidence } = evaluateSurvival(atlas, snapshot, config, { mod: options['--mod'], items: options['--items']?.split(','), requireIdentity: requiredIdentity || Boolean(config.captureRuntime), expectation: captured?.expectation, captureUnsupported }, packs);
   const cases = results.cases.map((c, index) => ({ ...c, detail: { file: basename(output) + '.evidence.json', pointer: `/details/${index}` } }));
   mkdirSync(dirname(output), { recursive: true });
-  writeFileSync(output + '.evidence.json', JSON.stringify({ ...evidence, atlasCommit, atlasSource: localSource ? 'explicit-local-development' : 'pinned-submodule' }, null, 2) + '\n');
+  writeFileSync(output + '.evidence.json', JSON.stringify({ ...evidence, ...(captured ? { captureEvidence: captured.captureEvidence, rawSnapshot: snapshot } : {}), atlasCommit, atlasSource: localSource ? 'explicit-local-development' : 'pinned-submodule' }, null, 2) + '\n');
   writeFileSync(output, JSON.stringify({ ...results, cases }, null, 2) + '\n');
   console.log(JSON.stringify({ results: output, cases: results.cases.length, atlasCommit }));
   // The process driver reads cases only after a successful transport exit.

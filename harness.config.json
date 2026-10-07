@@ -56,6 +56,7 @@
         "unit",
         "server-gametest",
         "server-smoke",
+        "server-persistence",
         "client-smoke",
         "multiplayer",
         "multi-client"
@@ -85,6 +86,9 @@
             "backend": "mc-pilot",
             "helper": "mct-helper-fabric-1.21.1"
           }
+        },
+        "server-persistence": {
+          "runtime": "fabric-1.21.1-server-persistence"
         }
       }
     },
@@ -116,6 +120,7 @@
         "unit",
         "server-gametest",
         "server-smoke",
+        "server-persistence",
         "client-smoke",
         "multiplayer",
         "multi-client"
@@ -149,6 +154,9 @@
             "backend": "mc-pilot",
             "helper": "mct-helper-neoforge-1.21.1"
           }
+        },
+        "server-persistence": {
+          "runtime": "neoforge-1.21.1-server-persistence"
         }
       }
     },
@@ -180,6 +188,7 @@
         "unit",
         "server-gametest",
         "server-smoke",
+        "server-persistence",
         "client-smoke",
         "multiplayer",
         "multi-client"
@@ -213,6 +222,9 @@
             "backend": "mc-pilot",
             "helper": "mct-helper-fabric-1.20.1"
           }
+        },
+        "server-persistence": {
+          "runtime": "fabric-1.20.1-server-persistence"
         }
       }
     },
@@ -244,6 +256,7 @@
         "unit",
         "server-gametest",
         "server-smoke",
+        "server-persistence",
         "client-smoke",
         "multiplayer",
         "multi-client"
@@ -277,6 +290,9 @@
             "backend": "mc-pilot",
             "helper": "mct-helper-forge-1.20.1"
           }
+        },
+        "server-persistence": {
+          "runtime": "forge-1.20.1-server-persistence"
         }
       }
     }
@@ -379,6 +395,56 @@
         "real-client",
         "multi-client"
       ]
+    },
+    "server-persistence": {
+      "driver": "server-persistence",
+      "requiredCapabilities": [
+        "dedicated-server",
+        "fixture-persistence"
+      ],
+      "expectedTests": [
+        "persistence.seed",
+        "persistence.saved",
+        "persistence.stopped",
+        "persistence.restarted",
+        "persistence.restore.block",
+        "persistence.restore.counter",
+        "persistence.restore.inventory",
+        "persistence.restore.saved",
+        "persistence.final-stop"
+      ],
+      "minTests": 9,
+      "persistence": {
+        "seed": [
+          {
+            "command": "fixture persistence seed {nonce}",
+            "pattern": "MCH_PERSISTENCE seed {nonce} PASS"
+          }
+        ],
+        "assertions": [
+          {
+            "id": "persistence.restore.block",
+            "command": "fixture persistence block {nonce}",
+            "pattern": "MCH_PERSISTENCE block {nonce} PASS"
+          },
+          {
+            "id": "persistence.restore.counter",
+            "command": "fixture persistence counter {nonce}",
+            "pattern": "MCH_PERSISTENCE counter {nonce} PASS"
+          },
+          {
+            "id": "persistence.restore.inventory",
+            "command": "fixture persistence inventory {nonce}",
+            "pattern": "MCH_PERSISTENCE inventory {nonce} PASS"
+          },
+          {
+            "id": "persistence.restore.saved",
+            "command": "fixture persistence saved {nonce}",
+            "pattern": "MCH_PERSISTENCE saved {nonce} PASS"
+          }
+        ]
+      },
+      "runtime": "fabric-1.21.1-server-persistence"
     }
   },
   "runtimes": {
@@ -455,6 +521,94 @@
       "command": {
         "executable": "{java:game}",
         "args": [
+          "-Xmx1G",
+          "@libraries/net/minecraftforge/forge/1.20.1-47.3.0/{os}_args.txt",
+          "nogui"
+        ]
+      },
+      "readyPattern": "Done \\(.*\\)! For help"
+    },
+    "fabric-1.21.1-server-persistence": {
+      "kind": "server",
+      "capabilities": [
+        "dedicated-server",
+        "fixture-persistence"
+      ],
+      "command": {
+        "executable": "{java:game}",
+        "args": [
+          "-Dmch.fixture.persistence=true",
+          "-Xmx1G",
+          "-jar",
+          "{tool:fabric-server-1.21.1}",
+          "nogui"
+        ]
+      },
+      "readyPattern": "Done \\(.*\\)! For help"
+    },
+    "neoforge-1.21.1-server-persistence": {
+      "kind": "server",
+      "capabilities": [
+        "dedicated-server",
+        "fixture-persistence"
+      ],
+      "setup": {
+        "executable": "{java:game}",
+        "args": [
+          "-jar",
+          "{tool:neoforge-server-1.21.1}",
+          "--installServer",
+          "."
+        ]
+      },
+      "command": {
+        "executable": "{java:game}",
+        "args": [
+          "-Dmch.fixture.persistence=true",
+          "-Xmx1G",
+          "@libraries/net/neoforged/neoforge/21.1.252/{os}_args.txt",
+          "nogui"
+        ]
+      },
+      "readyPattern": "Done \\(.*\\)! For help"
+    },
+    "fabric-1.20.1-server-persistence": {
+      "kind": "server",
+      "capabilities": [
+        "dedicated-server",
+        "fixture-persistence"
+      ],
+      "command": {
+        "executable": "{java:game}",
+        "args": [
+          "-Dmch.fixture.persistence=true",
+          "-Xmx1G",
+          "-jar",
+          "{tool:fabric-server-1.20.1}",
+          "nogui"
+        ]
+      },
+      "readyPattern": "Done \\(.*\\)! For help"
+    },
+    "forge-1.20.1-server-persistence": {
+      "kind": "server",
+      "capabilities": [
+        "dedicated-server",
+        "fixture-persistence"
+      ],
+      "setup": {
+        "executable": "{java:game}",
+        "args": [
+          "-jar",
+          "{tool:forge-server-1.20.1}",
+          "--installServer",
+          "."
+        ]
+      },
+      "command": {
+        "executable": "{java:game}",
+        "args": [
+          "-Dmch.fixture.persistence=true",
           "-Xmx1G",
           "@libraries/net/minecraftforge/forge/1.20.1-47.3.0/{os}_args.txt",
           "nogui"

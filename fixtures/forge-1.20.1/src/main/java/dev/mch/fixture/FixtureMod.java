@@ -50,6 +50,7 @@ public final class FixtureMod {
                 return 1;
             }))));
         event.getDispatcher().register(Commands.literal("fixture").requires(source -> source.hasPermission(2))
+            .then(PersistenceFixture.commands())
             .then(Commands.literal("state").then(Commands.argument("pos", BlockPosArgument.blockPos()).executes(context -> {
                 var pos = BlockPosArgument.getLoadedBlockPos(context, "pos");
                 var entity = context.getSource().getLevel().getBlockEntity(pos);
@@ -60,4 +61,3 @@ public final class FixtureMod {
             }))));
     }
 }
-

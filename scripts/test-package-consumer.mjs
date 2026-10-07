@@ -50,6 +50,7 @@ try {
       assert.equal(provenance.files[file].version, version);
       assert.equal(provenance.files[file].sha256, createHash('sha256').update(bytes).digest('hex'));
       assert.match(bytes.toString(), /Forge\/Fabric 1\.20\.1|1\.20\.1 collectors/);
+      assert.match(bytes.toString(), /server-persistence/); assert.match(bytes.toString(), /captureRuntime/);
     }
   }
   assert.equal(metadata().version, version);
@@ -65,13 +66,17 @@ try {
   assert.ok(!existsSync(join(packageRoot, 'projects')) && !existsSync(join(packageRoot, 'scripts/atlas-survival.mjs')));
   assert.ok(!existsSync(join(packageRoot, '.harness')) && !existsSync(join(packageRoot, 'harness.local.json')));
   // Resolve only the installed package's explicit exports, with no repository source imports.
-  execFileSync(process.execPath, ['--input-type=module', '-e', "for (const part of ['core/config','core/cache','core/tools','core/types','adapters/runtime/server','adapters/runtime/mc-pilot']) await import('craft-foundry/' + part)"], { cwd: directory, encoding: 'utf8' });
+  execFileSync(process.execPath, ['--input-type=module', '-e', "for (const part of ['core/config','core/capture-identity','core/cache','core/tools','core/types','adapters/runtime/server','adapters/runtime/mc-pilot']) await import('craft-foundry/' + part)"], { cwd: directory, encoding: 'utf8' });
   writeFileSync(join(directory, 'case-contract.ts'), `import type { CaseResult } from 'craft-foundry/core/types';
 const result: CaseResult = {id:'survival.item',status:'unsupported',message:'Human summary',detail:{file:'results.json.evidence.json',pointer:'/details/0'},diagnostics:{schemaVersion:1,counts:{incomplete:1,unknown:0,stopReasons:0}}};
 export {result};`);
   execFileSync(process.execPath, [join(root, 'node_modules/typescript/bin/tsc'), '--strict', '--noEmit', '--module', 'NodeNext', '--moduleResolution', 'NodeNext', '--target', 'ES2023', '--types', 'node', '--typeRoots', join(root, 'node_modules/@types'), 'case-contract.ts'], { cwd: directory, encoding: 'utf8' });
   const listed = cli('targets', '--project', packageRoot, '--json');
   assert.ok(JSON.stringify(listed).includes('forge-1.20.1') && JSON.stringify(listed).includes('fabric-1.20.1'));
+  const packagedConfig = JSON.parse(readFileSync(join(packageRoot,'harness.config.json'),'utf8'));
+  for (const target of Object.values(packagedConfig.targets)) assert.ok(target.requiredSuites.includes('server-persistence'));
+  assert.equal(packagedConfig.suites['server-persistence'].driver,'server-persistence');
+  assert.ok(existsSync(join(packageRoot,'dist/adapters/test/persistence.js')));
   // The repository-only Atlas producer is not shipped. Its optional result metadata
   // must still survive the installed process driver, report CLI and CI template.
   mkdirSync(join(directory, 'build/libs'), { recursive: true });
@@ -79,8 +84,9 @@ export {result};`);
   writeFileSync(join(directory, 'manifest.json'), JSON.stringify({ schemaVersion: 1, target: 'fabric', minecraft: '1.21.1', loader: 'fabric', artifacts: [{ path: 'build/libs/fixture.jar', kind: 'distribution', side: 'both' }] }));
   writeFileSync(join(directory, 'gradlew.bat'), '@echo off\r\nexit /b 0\r\n');
   writeFileSync(join(directory, 'gradlew'), '#!/bin/sh\nexit 0\n'); chmodSync(join(directory, 'gradlew'), 0o755);
-  writeFileSync(join(directory, 'produce.mjs'), `import {writeFileSync} from 'node:fs';
-if (!process.argv.includes('--missing-detail')) writeFileSync('results.json.evidence.json', JSON.stringify({schemaVersion:2,diagnosticContractVersion:1,incomplete:['Complete detail 日本語🌋 <&> '.repeat(100000)],details:[{incompleteRef:'#/incomplete',analysis:{unknown:[],stopReasons:[]}}]}));
+  writeFileSync(join(directory, 'produce.mjs'), `import {writeFileSync} from 'node:fs';import {createHash} from 'node:crypto';
+const raw='{"raw":"runtime provenance 日本語"}\\n';writeFileSync('recipes.jsonl',raw);
+if (!process.argv.includes('--missing-detail')) writeFileSync('results.json.evidence.json', JSON.stringify({schemaVersion:2,diagnosticContractVersion:1,captureEvidence:{schemaVersion:1,files:[{file:'recipes.jsonl',sha256:createHash('sha256').update(raw).digest('hex')}]},incomplete:['Complete detail 日本語🌋 <&> '.repeat(100000)],details:[{incompleteRef:'#/incomplete',analysis:{unknown:[],stopReasons:[]}}]}));
 writeFileSync('results.json', JSON.stringify({schemaVersion:1,cases:[{id:'survival.item',status:process.argv.includes('--missing-detail')?'passed':'unsupported',message:'Unknown acquisition; Next: review the evidence and capture',diagnostics:{schemaVersion:1,counts:{incomplete:1,unknown:0,stopReasons:0}},detail:{file:'results.json.evidence.json',pointer:'/details/0'}}]}));`);
   writeFileSync(join(directory, 'harness.config.json'), JSON.stringify({ schemaVersion: 1, projectId: 'packed-diagnostics',
     builds: { main: { root: '.', adapter: 'gradle' } },
@@ -111,6 +117,14 @@ writeFileSync('results.json', JSON.stringify({schemaVersion:1,cases:[{id:'surviv
   rmSync(runRoot, { recursive: true, force: true });
   assert.deepEqual(cli('report', '--project', relocated, '--run', run.id), run);
   assert.deepEqual(readFileSync(join(relocatedRun, detailFile)), bytes);
+  const rawFile = join(relocatedRun,'sessions/fabric/survival/recipes.jsonl'), rawBytes = readFileSync(rawFile);
+  assert.deepEqual(rawBytes,readFileSync(join(directory,'.harness/ci/evidence/runs',run.id,'sessions/fabric/survival/recipes.jsonl')));
+  writeFileSync(rawFile,'tampered');
+  const tamperedReport = spawnSync(process.execPath,[join(packageRoot,'dist/cli/main.js'),'report','--project',relocated,'--run',run.id,'--json'],{cwd:directory,encoding:'utf8'});
+  assert.equal(tamperedReport.status,2,tamperedReport.stderr);
+  rmSync(rawFile);
+  const missingRaw = spawnSync(process.execPath,['--input-type=module','-e',"import {pathToFileURL} from 'node:url'; const {collectFixtureEvidence} = await import(pathToFileURL(process.argv[1]).href); await collectFixtureEvidence(process.argv[2]);",collector,relocated],{cwd:directory,encoding:'utf8'});
+  assert.notEqual(missingRaw.status,0,'CI must reject missing checksummed raw capture');writeFileSync(rawFile,rawBytes);
   rmSync(join(relocatedRun, detailFile));
   const missingReport = spawnSync(process.execPath, [join(packageRoot, 'dist/cli/main.js'), 'report', '--project', relocated, '--run', run.id, '--json'], { cwd: directory, encoding: 'utf8' });
   assert.equal(missingReport.status, 2, missingReport.stderr);
@@ -122,5 +136,5 @@ writeFileSync('results.json', JSON.stringify({schemaVersion:1,cases:[{id:'surviv
   assert.equal(missingRun.status, 2, missingRun.stderr);
   assert.equal(JSON.parse(missingRun.stdout).targets[0].suites[0].status, 'infrastructure-error');
   assert.equal(JSON.parse(missingRun.stdout).targets[0].suites[0].detected, 0);
-  console.log(JSON.stringify({ version, packageSha256: createHash('sha256').update(readFileSync(options['--package'])).digest('hex'), previousVersion: previous?.version ?? null, skills: updated, targets: 4, exports: 6, template: 'exact-target and finite boundaries verified', diagnostics: 'installed process/report/JUnit/CI detail preservation verified' }));
+  console.log(JSON.stringify({ version, packageSha256: createHash('sha256').update(readFileSync(options['--package'])).digest('hex'), previousVersion: previous?.version ?? null, skills: updated, targets: 4, exports: 7, template: 'exact-target and finite boundaries verified', diagnostics: 'installed process/report/JUnit/CI detail preservation verified' }));
 } finally { rmSync(directory, { recursive: true, force: true }); }

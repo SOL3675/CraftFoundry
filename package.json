@@ -1,6 +1,6 @@
 {
   "name": "craft-foundry",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "CraftFoundry \u2014 reproducible Minecraft mod build and validation harness",
   "private": true,
   "license": "MIT",
@@ -73,6 +73,10 @@
     "./adapters/runtime/mc-pilot": {
       "types": "./dist/adapters/runtime/mc-pilot.d.ts",
       "default": "./dist/adapters/runtime/mc-pilot.js"
+    },
+    "./core/capture-identity": {
+      "types": "./dist/core/capture-identity.d.ts",
+      "default": "./dist/core/capture-identity.js"
     }
   }
 }

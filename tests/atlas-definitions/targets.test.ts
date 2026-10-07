@@ -113,7 +113,7 @@ for (const target of targets) {
     assert.throws(f.run, /Stale viewer/);
   });
 
-  test(`${target.id}: default pinned process suite passes reviewed routes and fails required finite samples`, async t => {
+  test(`${target.id}: default pinned process suite rejects missing build identity and required finite samples`, async t => {
     const project = mkdtempSync(join(tmpdir(), 'Foundry target 日本語 ')); t.after(() => rmSync(project, { recursive: true, force: true }));
     const f = fixture(target);
     writeFileSync(join(project, 'gradlew'), '#!/bin/sh\nexit 0\n'); chmodSync(join(project, 'gradlew'), 0o755);
@@ -129,7 +129,9 @@ for (const target of targets) {
       runtimes: { atlas: { kind: 'server', capabilities: [], command: { executable: process.execPath, args: [resolve(root, 'scripts/atlas-survival.mjs'), '--config', '{projectRoot}/survival.json', '--results', '{sessionRoot}/results.json', '--harness'] } } },
     }));
     const loaded = await loadConfig(project), run = () => executeRun(loaded, { command: 'test', targets: [target.id], profile: 'release' });
-    const passed = await run(); assert.equal(passed.status, 'passed', JSON.stringify(passed.targets));
+    const legacy = await run(); assert.equal(legacy.status, 'failed', JSON.stringify(legacy.targets));
+    assert.ok(legacy.targets[0]!.suites[0]!.cases.every(c => c.status === 'unsupported'));
+    assert.match(legacy.targets[0]!.suites[0]!.cases[0]!.message!, /Missing trusted expected build/);
     f.observe(); writeFileSync(join(project, 'snapshot.json'), JSON.stringify(f.snapshot));
     const failed = await run(); assert.equal(failed.status, 'failed');
     assert.equal(failed.targets[0]!.suites[0]!.detected, 10);

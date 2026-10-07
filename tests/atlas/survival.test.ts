@@ -214,7 +214,7 @@ test('real CLI produces harness-compatible fresh results and diagnostics in a Un
   assert.equal(run(['--unknown', 'value']).status, 2);
 });
 
-test('actual Foundry process suite evaluates Atlas cases and saves an auditable Run', async t => {
+test('actual required Foundry process suite rejects an old capture and saves auditable unsupported evidence', async t => {
   const project = realpathSync(mkdtempSync(join(tmpdir(), 'Foundry Atlas 日本語 ')));
   t.after(() => rmSync(project, { recursive: true, force: true }));
   // Only the build transport is a fixture: the harness, process driver, Atlas APIs,
@@ -234,9 +234,11 @@ test('actual Foundry process suite evaluates Atlas cases and saves an auditable 
   }));
   const loaded = await loadConfig(project);
   const run = () => executeRun(loaded, { command: 'test', targets: ['neoforge-1.21.1'] });
-  const passed = await run(); assert.equal(passed.status, 'passed', JSON.stringify(passed.targets));
-  assert.equal(passed.targets[0]!.suites[0]!.detected, 7);
-  const evidence = join(project, '.harness/runs', passed.id, 'sessions/neoforge-1.21.1/survival-acquisition/survival-results.json.evidence.json');
+  const legacy = await run(); assert.equal(legacy.status, 'failed', JSON.stringify(legacy.targets));
+  assert.ok(legacy.targets[0]!.suites[0]!.cases.every(c => c.status === 'unsupported'));
+  assert.match(legacy.targets[0]!.suites[0]!.cases[0]!.message!, /Missing trusted expected build/);
+  assert.equal(legacy.targets[0]!.suites[0]!.detected, 7);
+  const evidence = join(project, '.harness/runs', legacy.id, 'sessions/neoforge-1.21.1/survival-acquisition/survival-results.json.evidence.json');
   assert.equal(JSON.parse(readFileSync(evidence, 'utf8')).details.length, 7);
   const giant = 'Unverified hook 日本語🌋 <&> '.repeat(80000);
   c.providers.push({ resource: 'survival:seed', kind: 'loot', availability: 'unknown', evidence: giant });
@@ -281,7 +283,7 @@ test('actual Foundry process suite evaluates Atlas cases and saves an auditable 
   await assert.rejects(collectFixtureEvidence(relocated), { code: 'ENOENT' });
   c.providers.pop(); c.externalSources[0]!.status = 'complete'; c.cases![1]!.expected = 'reachable'; writeFileSync(join(project, 'survival.json'), JSON.stringify(c));
   const failed = await run(); assert.equal(failed.status, 'failed');
-  assert.equal(failed.targets[0]!.suites[0]!.cases.find(c => c.id === 'survival.no_source')!.status, 'failed');
+  assert.equal(failed.targets[0]!.suites[0]!.cases.find(c => c.id === 'survival.no_source')!.status, 'unsupported', 'a missing current-build identity cannot produce a semantic failure or pass from the old dump');
 });
 
 test('authenticated source initializes an actual fresh gitlink and restores canonical origin without install recursion', t => {

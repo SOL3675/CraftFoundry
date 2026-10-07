@@ -31,9 +31,13 @@ Reports and JUnit are saved under `.harness/runs/<run-id>/`. Exit codes are succ
 
 Install bundled agent Skills with `mch skills install --destination .agents/skills --json`; the installer preserves user edits. Install the fixed client backend with `mch tools install mc-pilot --project <directory> --json` and configure its returned path locally. See [Skills](docs/skills.md), [tools](docs/tools.md), [Linux](docs/linux.md) and [CI](docs/ci.md).
 
+Use [server restart persistence](docs/persistence.md) to verify representative saved block entities/state, inventory and custom world data in a second dedicated process on the same disposable world. Required suites keep missing probes explicit.
+
 ## Review acquisition changes
 
 The [acquisition template](templates/acquisition/README.md) helps review custom serializers, machines and other item sources against current [CraftAtlas](https://github.com/SOL3675/CraftAtlas) captures. The repository-only [survival suite](docs/survival.md) supports NeoForge/Fabric 1.21.1 and Forge/Fabric 1.20.1; the npm package ships guidance and templates, while the runner requires the Foundry repository and its pinned Atlas submodule.
+
+Required acquisition checks use [fresh capture identity](docs/survival.md#fresh-capture-and-built-jar-identity) to bind runtime JARs/configuration to the current built Run; old or unverifiable captures cannot pass.
 
 Review effective datapack JSON, source pack IDs, byte hashes and override stacks before writing exact-version definitions. Use `recipe` paths for 1.21.1 and `recipes` for 1.20.1. Raw data, JEI/EMI display entries and finite loot/block/entity/world observations are evidence, not proof of execution, exhaustive absence, sustainable supply or progression. Unknown hooks and incomplete coverage remain unknown/unsupported; Forge fluid runtime behavior remains unverified.
 
