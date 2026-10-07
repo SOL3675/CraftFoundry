@@ -39,7 +39,7 @@ The result's `.evidence.json` retains the full `datapack` dataset (or null for l
 
 ## Restore and run offline regressions
 
-From the Foundry root, with Node 24.19.0, npm 11.9.0 and network access to the public Atlas repository:
+From the Foundry root, with Node 24.19.0 and npm 11.9.0:
 
 ```console
 git submodule update --init projects/craft-atlas
@@ -98,11 +98,9 @@ mch test --target neoforge-1.21.1 --suite survival-acquisition --json
 
 `--harness` returns a successful transport exit after writing valid cases so the process driver can read them; it never changes case verdicts. Required failed/unsupported cases fail the suite. Input/access failures still exit 2 without results. The harness builds the Mod before running the suite; collect a fresh Atlas snapshot of that same distribution/configuration rather than reusing unrelated saved data. This initial suite does not automatically prove capture-to-JAR identity or launch/capture the game. Keep the companion evidence under the Run's session and retain it alongside the report. Offline regression success is independent of real-world acquisition testing or release validation.
 
-## CI access
+## CI
 
-[Atlas survival CI](../.github/workflows/atlas.yml) verifies the exact gitlink, initializes a real submodule from the public Atlas origin and runs all four targets' offline contracts on Windows/Ubuntu. Ordinary [Foundry contracts](../.github/workflows/contracts.yml) remain independent of Atlas access. Source acquisition failures fail the Atlas job explicitly, never skip it into green status.
-
-Both repositories are public. Atlas submodule initialization uses anonymous HTTPS access and requires no custom Actions secret, including for fork PRs. The workflow retains ordinary `actions/checkout` authentication for the Foundry checkout and `contents: read` permissions; it does not supply a cross-repository token.
+[Atlas survival CI](../.github/workflows/atlas.yml) verifies the exact gitlink, initializes a real submodule and runs all four targets' offline contracts on Windows/Ubuntu. Ordinary [Foundry contracts](../.github/workflows/contracts.yml) remain independent of Atlas access. Source acquisition failures fail the Atlas job explicitly, never skip it into green status.
 
 For an existing local checkout at the pinned SHA, `node .github/scripts/prepare-atlas.mjs --source <checkout>` initializes the gitlink using a command-local local-source override and restores the canonical remote. It never installs Atlas's parent dependency or alters Atlas main. Full Atlas consumer validation can separately run its `prepare-foundry.mjs --source ../..`, frozen pnpm install, check/test/build; it keeps Atlas's independent Foundry pin and does not consume Foundry dev automatically.
 

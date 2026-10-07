@@ -39,8 +39,6 @@ mch report --run <run-id> --json
 
 ハーネス自体の開発・テスト fixture・配布物の生成は [開発・配布](docs/distribution.md) に記載しています。
 
-このリポジトリと CraftAtlas は公開されています。`git submodule update --init projects/craft-atlas` は匿名 HTTPS で固定済み Atlas submodule を取得します。fork PR を含め、独自の Actions secret は不要です。[survival CI](docs/survival.md#ci-access) を参照してください。
-
 ## ライセンス
 
 
