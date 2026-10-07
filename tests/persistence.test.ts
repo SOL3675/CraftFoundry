@@ -49,7 +49,8 @@ test('persistence driver requires two real process lifetimes, disk restoration a
   } finally { await rm(c.root, { recursive: true, force: true }); }
 });
 test('lost restoration fails and skips final success; cleanup stops the second process', async () => {
-  const c = await contract('forget'); c.loaded.local.timeouts.test = 600;
+  const c = await contract('forget'); c.loaded.local.timeouts.test = 60_000;
+  c.suite.persistence.assertions[0].failurePattern = 'RESTORED FAIL';
   try {
     const result = await runServerPersistence(c.loaded, 'target', c.runtime, c.suite, c.artifacts, c.root, c.directory);
     assert.equal(result.cases.find(c => c.id === 'persistence.restore.custom')?.status, 'failed');
