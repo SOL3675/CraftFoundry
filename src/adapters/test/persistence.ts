@@ -52,6 +52,7 @@ export async function runServerPersistence(loaded: LoadedConfig, target: string,
   const ids = ['persistence.seed', 'persistence.saved', 'persistence.stopped', 'persistence.restarted', ...suite.persistence.assertions.map(a => a.id), 'persistence.final-stop'];
   for (const id of ids) if (!cases.some(c => c.id === id)) cases.push({ id, status: 'skipped', message: 'Persistence prerequisite failed' });
   if (server.ownsDirectory) await writeFile(path.join(directory, 'persistence.json'), JSON.stringify({ schemaVersion: 1, owner: server.owner, nonce, transcript, cases }, null, 2));
-  return { cases, logs: [...new Set(logs)].map(file => path.relative(runRoot, file)),
-    evidence: (server.ownsDirectory ? ['persistence.json', ...await server.collectEvidence()] : []).map(file => path.relative(runRoot, path.join(directory, file))) };
+  const relative = (file: string) => path.relative(runRoot, file).split(path.sep).join('/');
+  return { cases, logs: [...new Set(logs)].map(relative),
+    evidence: (server.ownsDirectory ? ['persistence.json', ...await server.collectEvidence()] : []).map(file => relative(path.join(directory, file))) };
 }

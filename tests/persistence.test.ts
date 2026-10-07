@@ -42,6 +42,7 @@ test('persistence driver requires two real process lifetimes, disk restoration a
     assert.notEqual(pids[0], pids[1]);
     for (const pid of pids) assert.throws(() => process.kill(Number(pid), 0), /ESRCH/);
     assert.ok(result.logs.some(p => p.includes('launch-1')) && result.logs.some(p => p.includes('launch-2')));
+    for (const file of [...result.logs, ...result.evidence]) assert.ok(!file.includes('\\'), 'Run evidence paths must use portable forward slashes');
     const evidence = JSON.parse(await readFile(path.join(c.directory, 'persistence.json'), 'utf8'));
     assert.equal(evidence.transcript.filter((e: any) => e.command.startsWith('seed')).length, 1);
     assert.equal(evidence.transcript.at(-1).launch, 2);
