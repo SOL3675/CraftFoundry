@@ -13,11 +13,11 @@ if (args.length === 1 && args[0] === '--pin') {
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `commit=${pin}\n`);
   console.log(pin);
 } else {
-  if (args.length && !(args.length === 2 && args[0] === '--source' && args[1])) throw new Error('Usage: node .github/scripts/prepare-atlas.mjs [--pin | --source <authenticated-checkout>]');
+  if (args.length && !(args.length === 2 && args[0] === '--source' && args[1])) throw new Error('Usage: node .github/scripts/prepare-atlas.mjs [--pin | --source <existing-git-checkout>]');
   try {
     if (args.length) {
       const source = resolve(args[1]);
-      if (run(['rev-parse', 'HEAD'], source) !== pin) throw new Error('Authenticated Atlas source differs from the gitlink');
+      if (run(['rev-parse', 'HEAD'], source) !== pin) throw new Error('Atlas source differs from the gitlink');
       // Register the canonical URL first: a command-local URL alone makes Git
       // skip init, leaving the submodule inactive and sync unable to restore origin.
       run(['submodule', 'init', '--', 'projects/craft-atlas']);
@@ -26,7 +26,7 @@ if (args.length === 1 && args[0] === '--pin') {
       run(['submodule', 'sync', '--', 'projects/craft-atlas']);
     } else run(['submodule', 'update', '--init', '--', 'projects/craft-atlas']);
   } catch (error) {
-    throw new Error('Cannot initialize private CraftAtlas. Supply an existing read-only CRAFTATLAS_READ_TOKEN in Foundry Actions (selected Atlas repository, Contents: read), or use an already authorized checkout via --source. No Atlas integration checks have passed.', { cause: error });
+    throw new Error('Cannot initialize pinned CraftAtlas from its public origin. Check network access and gitlink availability, or use an existing checkout at the pinned commit via --source. No Atlas integration checks have passed.', { cause: error });
   }
   if (run(['rev-parse', 'HEAD'], resolve(root, 'projects/craft-atlas')) !== pin) throw new Error('Atlas submodule pin mismatch');
   const parentPin = JSON.parse(readFileSync(resolve(root, 'projects/craft-atlas/craft-foundry.source.json'), 'utf8'));

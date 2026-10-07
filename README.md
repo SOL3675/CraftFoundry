@@ -39,6 +39,8 @@ Review effective datapack JSON, source pack IDs, byte hashes and override stacks
 
 Harness source development, test fixtures and package production are documented in [development and distribution](docs/distribution.md).
 
+Both this repository and CraftAtlas are public. Initialize the pinned Atlas submodule with `git submodule update --init projects/craft-atlas` over anonymous HTTPS; no custom Actions secret is required, including for fork PRs. See [survival CI](docs/survival.md#ci-access).
+
 ## License
 
 

@@ -9,8 +9,6 @@ jobs:
       matrix:
         os: [windows-2022, ubuntu-24.04]
     runs-on: ${{ matrix.os }}
-    env:
-      CRAFTATLAS_TOKEN_CONFIGURED: ${{ secrets.CRAFTATLAS_READ_TOKEN != '' }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -21,24 +19,7 @@ jobs:
           cache: npm
       - run: npm install --prefix .harness/ci/package-manager --no-save --package-lock=false --ignore-scripts npm@11.9.0
       - run: node .harness/ci/package-manager/node_modules/npm/bin/npm-cli.js ci --ignore-scripts
-      - name: Read exact Atlas gitlink
-        id: atlas
-        run: node .github/scripts/prepare-atlas.mjs --pin
-      - name: Read private Atlas with existing repository access
-        if: env.CRAFTATLAS_TOKEN_CONFIGURED == 'true'
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          repository: SOL3675/CraftAtlas
-          ref: ${{ steps.atlas.outputs.commit }}
-          token: ${{ secrets.CRAFTATLAS_READ_TOKEN }}
-          path: .harness/ci/atlas-source
-          persist-credentials: false
-          submodules: false
-      - name: Initialize real submodule from authenticated source
-        if: env.CRAFTATLAS_TOKEN_CONFIGURED == 'true'
-        run: node .github/scripts/prepare-atlas.mjs --source .harness/ci/atlas-source
-      - name: Initialize using runner Git access
-        if: env.CRAFTATLAS_TOKEN_CONFIGURED != 'true'
+      - name: Initialize pinned Atlas submodule from public origin
         run: node .github/scripts/prepare-atlas.mjs
       - run: node .harness/ci/package-manager/node_modules/npm/bin/npm-cli.js run check:atlas
       - run: node .harness/ci/package-manager/node_modules/npm/bin/npm-cli.js run test:atlas

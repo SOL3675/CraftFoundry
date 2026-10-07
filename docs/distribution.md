@@ -13,7 +13,7 @@ npm run test:consumer -- --package craft-foundry-0.1.7.tgz
 
 ## CraftAtlas consumer
 
-[CraftAtlas](https://github.com/SOL3675/CraftAtlas) is pinned as a real submodule at `projects/craft-atlas`, retaining its independent history, pnpm lockfile, and bootstrap script. Initialize with `git submodule update --init projects/craft-atlas` using existing authorized Git access. From `projects/craft-atlas`, run:
+[CraftAtlas](https://github.com/SOL3675/CraftAtlas) is pinned as a real submodule at `projects/craft-atlas`, retaining its independent history, pnpm lockfile, and bootstrap script. Initialize with `git submodule update --init projects/craft-atlas` using anonymous HTTPS access; the public repository needs no custom token. From `projects/craft-atlas`, run:
 
 ```console
 node scripts/prepare-foundry.mjs --source ../..
@@ -23,7 +23,7 @@ pnpm test
 pnpm build
 ```
 
-The source argument is an existing Git checkout containing the exact commit in Atlas's `craft-foundry.source.json`. Atlas builds that commit in its ignored temporary checkout; it does not install from the source working tree or change its branch. Omit `--source` to fetch the pinned commit from the recorded origin. Credentials, if required, must already be configured in Git. No tarball or generated build output is committed.
+The source argument is an existing Git checkout containing the exact commit in Atlas's `craft-foundry.source.json`. Atlas builds that commit in its ignored temporary checkout; it does not install from the source working tree or change its branch. Omit `--source` to fetch the pinned commit from the recorded origin. The recorded public origin needs no credentials. For an independently configured private origin, Git access must already be configured. No tarball or generated build output is committed.
 
 The merged Atlas submodule independently pins Foundry 0.1.5 at `21a7a3d4984eaa154b1c5a8b8d0a2756dfee05c6`; this integration update does not alter that pin or its frozen lock. To validate a new packed candidate on a local validation machine, use the isolated consumer overlay in [survival validation](survival.md#validate-a-new-foundry-package-locally).
 
