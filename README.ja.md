@@ -43,5 +43,3 @@ mch report --run <run-id> --json
 
 
 CraftFoundry 独自のコードとドキュメントには [MIT](LICENSE) を適用します（Copyright (c) 2026 SOL3675）。個別のライセンス・著作権表示があるファイルは、その条件と表示を維持します。既存 fixture の MIT 表示と Gradle Wrapper の Apache-2.0 ヘッダー・同梱表示は変更しません。依存ライブラリ、取得するツール、Minecraft、他の Mod はそれぞれのライセンスに従います。npm パッケージには LICENSE と既存の fixture・Gradle 表示を、fixture のバイナリ・ソース JAR には既存の MIT 本文を `META-INF/LICENSE` として同梱します。npm パッケージは引き続き未公開・`private: true` です。
-
-[サーバー再起動の永続化テスト](docs/persistence.md)では、専用サーバープロセスを正常終了し、同じ使い捨てワールドを別プロセスで開いて保存状態を検証します。[取得キャプチャの識別](docs/survival.md#fresh-capture-and-built-jar-identity)は、現在のビルド成果物と実際のランタイムを照合し、古い・欠落した・検証不能な証拠では必須テストを合格にしません。新しいゲーム検証は対象ごとに必要です。
