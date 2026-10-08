@@ -12,8 +12,14 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.Block;
+
 public final class CounterBlock extends BaseEntityBlock {
-    public CounterBlock(Properties properties) { super(properties); }
+    public static final BooleanProperty PERSISTENT = BooleanProperty.create("persistent");
+    public CounterBlock(Properties properties) { super(properties); registerDefaultState(stateDefinition.any().setValue(PERSISTENT, false)); }
+    @Override protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) { builder.add(PERSISTENT); }
     @Override public RenderShape getRenderShape(BlockState state) { return RenderShape.MODEL; }
     @Override public BlockEntity newBlockEntity(BlockPos pos, BlockState state) { return new CounterBlockEntity(pos, state); }
     @Override public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand, BlockHitResult hit) {

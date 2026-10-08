@@ -9,6 +9,7 @@ import { redactText } from '../reporting/redact.js';
 import { resolveTool } from './cache.js';
 import { validateMcPilotInstallation } from './tools.js';
 import { runClientSmoke, runFixtureMultiplayer, runFixtureMultiClient, fixtureCapabilities } from '../adapters/test/multiplayer.js';
+import { runServerPersistence } from '../adapters/test/persistence.js';
 import { createRun, saveReport } from '../reporting/report.js';
 import { clientDisplayEnvironment } from '../platform/display.js';
 import type { CaseStatus, RunReport, SuiteReport, TargetReport } from '../reporting/types.js';
@@ -113,6 +114,11 @@ async function executeSuite(loaded: LoadedConfig, adapter: GradleBuildAdapter, t
       const result = await driver(loaded, targetId, runtime, artifacts, directory, path.join(directory, 'sessions', targetId, suiteId), { backendRoot, helperArtifact: { path: helperPath, sha256: helperSha256 }, signal, reportRoot: directory, assetCache: loaded.local.assetCaches?.[target.minecraft] ?? loaded.local.assetCache });
       return { ...evaluateSuite(suiteId, suite, result.cases, required), logs: result.logs, evidence: result.evidence, runtimeMetadata: { ...result.metadata, backendIdentity, displayEnvironment } };
     }
+    if (suite.driver === 'server-persistence') {
+      if (!runtime || runtime.kind !== 'server') throw new Error('Persistence needs a dedicated server runtime');
+      const result = await runServerPersistence(loaded, targetId, runtime, suite, artifacts, directory, path.join(directory, 'sessions', targetId, suiteId), signal);
+      return { ...evaluateSuite(suiteId, suite, result.cases, required), logs: result.logs, evidence: result.evidence };
+    }
     if (suite.driver === 'server-smoke') {
       if (!runtime || runtime.kind !== 'server') throw new Error('Server smoke requires a dedicated server runtime');
       const sessionRoot = path.join(directory, 'sessions', targetId, suiteId);
@@ -159,7 +165,7 @@ async function executeSuite(loaded: LoadedConfig, adapter: GradleBuildAdapter, t
       const substitute = (value: string) => value.replaceAll('{projectRoot}', loaded.root).replaceAll('{sessionRoot}', sessionRoot).replaceAll('{target}', targetId).replaceAll('{runRoot}', directory);
       process = await runProcess({ executable: substitute(runtime.command.executable), args: runtime.command.args.map(substitute), cwd: sessionRoot,
         timeoutMs: loaded.local.timeouts?.test ?? 120_000, stopTimeoutMs: loaded.local.timeouts?.stop ?? 5_000, logDir, signal,
-        env: { ...globalThis.process.env, MCH_PROJECT_ROOT: loaded.root, MCH_SESSION_ROOT: sessionRoot, MCH_TARGET: targetId }, redact: redactText });
+        env: { ...globalThis.process.env, MCH_PROJECT_ROOT: loaded.root, MCH_SESSION_ROOT: sessionRoot, MCH_TARGET: targetId, MCH_RUN_ROOT: directory }, redact: redactText });
     }
     base.logs = [relative(directory, process.logs.stdout), relative(directory, process.logs.stderr)];
     if (process.status !== 'passed') return { ...base, status: processStatus(process), error: process.error ?? `Test process ${process.status}, exit code ${process.exitCode}` };

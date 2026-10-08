@@ -8,12 +8,13 @@
       "java": { "gradle": "jdk21", "toolchain": 21, "game": "jdk21" },
       "tasks": { "build": ["build"], "unit": ["test"] },
       "artifactManifest": "build/harness/fabric-1.21.1.json",
-      "requiredSuites": ["unit", "server-smoke", "client-smoke", "multiplayer"]
+      "requiredSuites": ["unit", "server-smoke", "server-persistence", "client-smoke", "multiplayer"]
     }
   },
   "suites": {
     "unit": { "driver": "gradle", "task": "unit", "minTests": 1, "results": "build/test-results/test/TEST-your.package.LogicTest.xml" },
     "server-smoke": { "driver": "unsupported" },
+    "server-persistence": { "driver": "unsupported", "requiredCapabilities": ["world-persistence"] },
     "client-smoke": { "driver": "unsupported" },
     "multiplayer": { "driver": "unsupported" }
   },

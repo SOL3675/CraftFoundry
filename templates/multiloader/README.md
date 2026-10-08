@@ -12,3 +12,5 @@ mch test --all --profile release --json
 ```
 
 Change the target argument for other fixtures. Required unsupported/missing tests block release. Fixture multiplayer drivers require the counter block, GUI, and observation commands; adapt actual tasks, artifacts, results, and scenarios when connecting a new Mod. See [support constraints](../../docs/support.md).
+
+All four fixture targets require the nine-case [server-persistence](../../docs/persistence.md) suite. The second dedicated process reads the same disposable world without reseeding. New game coverage must be validated locally; cloud contracts do not prove restoration in Minecraft.

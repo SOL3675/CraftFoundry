@@ -13,8 +13,13 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 
+import net.minecraft.item.ItemStack;
+
 public final class CounterBlockEntity extends BlockEntity implements NamedScreenHandlerFactory {
     private CounterState counter = new CounterState();
+    private ItemStack stored = ItemStack.EMPTY;
+    public ItemStack stored() { return stored; }
+    public void store(ItemStack stack) { stored = stack.copy(); markDirty(); }
     public CounterBlockEntity(BlockPos pos, BlockState state) { super(FixtureMod.COUNTER_ENTITY, pos, state); }
     public int value() { return counter.value(); }
     public int increment() {
@@ -25,11 +30,13 @@ public final class CounterBlockEntity extends BlockEntity implements NamedScreen
     }
     @Override public void readNbt(NbtCompound nbt) {
         super.readNbt(nbt);
-        counter = new CounterState(nbt.getInt("Counter"));
+        counter = new CounterState("counter".equals(System.getProperty("mch.fixture.breakPersistence")) ? 0 : nbt.getInt("Counter"));
+        stored = "inventory".equals(System.getProperty("mch.fixture.breakPersistence")) ? ItemStack.EMPTY : ItemStack.fromNbt(nbt.getCompound("Stored"));
     }
     @Override protected void writeNbt(NbtCompound nbt) {
         super.writeNbt(nbt);
         nbt.putInt("Counter", value());
+        if (!stored.isEmpty()) nbt.put("Stored", stored.writeNbt(new NbtCompound()));
     }
     @Override public NbtCompound toInitialChunkDataNbt() {
         var snapshot = createNbt();

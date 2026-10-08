@@ -1,5 +1,5 @@
 import { createServer } from 'node:net';
-import { cp, lstat, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { cp, lstat, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { Artifact, LoadedConfig, RuntimeConfig } from '../../core/types.js';
@@ -28,6 +28,12 @@ export class OwnedServer {
   private logDir: string;
   private onCancel?: () => void;
   private parentSignal?: AbortSignal;
+  private prepared = false;
+  private launch = 0;
+  private settled = false;
+  private cleanStopped = false;
+  private ownedDirectory = false;
+  get ownsDirectory(): boolean { return this.ownedDirectory; }
 
   constructor(loaded: LoadedConfig, targetId: string, runtime: RuntimeConfig, directory: string, logDir: string) {
     this.loaded = loaded; this.targetId = targetId; this.runtime = runtime; this.directory = directory; this.logDir = logDir;
@@ -36,6 +42,10 @@ export class OwnedServer {
     signal?.throwIfAborted();
     if (!this.loaded.local.eulaAccepted) throw new Error('EULA acceptance is required before starting a Minecraft server');
     if (!this.runtime.command || !this.runtime.readyPattern) throw new Error('Server runtime requires an explicit command and readiness pattern');
+    await assertContainedPath(runDirectory, this.directory);
+    await mkdir(this.directory, { recursive: true });
+    if ((await readdir(this.directory)).length) throw new Error('Server preparation requires an empty disposable session; existing worlds are never overwritten');
+    this.ownedDirectory = true;
     await mkdir(path.join(this.directory, 'mods'), { recursive: true });
     const deployed = [];
     for (const artifact of artifacts.filter(item => ['distribution', 'runtime-dependency'].includes(item.kind) && ['both', 'server'].includes(item.side))) {
@@ -60,6 +70,7 @@ export class OwnedServer {
         logDir: path.join(this.directory, 'setup-logs'), redact: redactText, signal });
       if (result.status !== 'passed') throw new Error(`Runtime setup ${result.status}: ${result.error ?? result.stderr.slice(-2000)}`);
     }
+    this.prepared = true;
   }
   private async substitute(value: string, signal?: AbortSignal): Promise<string> {
     if (value === '{java:game}') {
@@ -73,6 +84,7 @@ export class OwnedServer {
     return value.replaceAll('{sessionRoot}', this.directory).replaceAll('{port}', String(this.port)).replaceAll('{os}', process.platform === 'win32' ? 'win' : 'unix');
   }
   async start(signal?: AbortSignal): Promise<void> {
+    if (!this.prepared || this.done) throw new Error('Server must be prepared and cannot start twice; use restart after a clean stop');
     try {
       const command = this.runtime.command!;
       const executable = await this.substitute(command.executable, signal);
@@ -82,14 +94,16 @@ export class OwnedServer {
       this.parentSignal = signal; this.onCancel = () => this.controller.abort();
       signal?.addEventListener('abort', this.onCancel, { once: true });
       const readyPattern = new RegExp(this.runtime.readyPattern!);
-      this.done = runProcess({ executable, args, cwd: this.directory, logDir: this.logDir, timeoutMs: this.loaded.local.timeouts?.test ?? 300_000,
+      this.launch++;
+      this.cleanStopped = false;
+      this.done = runProcess({ executable, args, cwd: this.directory, logDir: path.join(this.logDir, `launch-${this.launch}`), timeoutMs: this.loaded.local.timeouts?.test ?? 300_000,
         stopTimeoutMs: this.loaded.local.timeouts?.stop ?? 10_000, signal: this.controller.signal, gracefulInput: 'stop\n', redact: redactText,
         onStart: control => { this.write = control.write; },
         onOutput: (_stream, text) => {
           this.outputLength += text.length; this.output = (this.output + text).slice(-1024 * 1024);
           if (readyPattern.test(this.output)) this.resolveReady();
           for (const listener of this.listeners) listener();
-        } });
+        } }).then(result => { this.settled = true; this.write = undefined; return result; });
     } catch (error) { await this.releasePort(); throw error; }
   }
   async waitReady(): Promise<void> {
@@ -108,7 +122,7 @@ export class OwnedServer {
     this.write(`${command}\n`);
   }
   mark(): number { return this.outputLength; }
-  async waitForOutput(pattern: RegExp, timeoutMs: number, after = 0): Promise<string> {
+  async waitForOutput(pattern: RegExp, timeoutMs: number, after = 0, failurePattern?: RegExp): Promise<string> {
     if (!this.done) throw new Error('Server has not started');
     let listener: (() => void) | undefined;
     let timer: NodeJS.Timeout | undefined;
@@ -116,7 +130,12 @@ export class OwnedServer {
       return await new Promise<string>((resolve, reject) => {
         listener = () => {
           const start = Math.max(0, after - (this.outputLength - this.output.length));
-          pattern.lastIndex = 0; const match = pattern.exec(this.output.slice(start));
+          const output = this.output.slice(start);
+          if (failurePattern) {
+            failurePattern.lastIndex = 0; const failure = failurePattern.exec(output);
+            if (failure) { reject(new Error(`Server probe reported failure: ${failure[0]}`)); return; }
+          }
+          pattern.lastIndex = 0; const match = pattern.exec(output);
           if (match) resolve(match[0]);
         };
         this.listeners.add(listener); listener();
@@ -132,6 +151,38 @@ export class OwnedServer {
     const result = await this.done;
     if (this.onCancel) this.parentSignal?.removeEventListener('abort', this.onCancel);
     return result;
+  }
+  /** Normal console shutdown, with bounded fallback cleanup. Forced shutdown is never a clean restart pass. */
+  async stopClean(): Promise<ProcessResult> {
+    if (!this.done || this.settled) throw new Error('Clean stop requires a live owned server');
+    this.command('stop');
+    let timer: NodeJS.Timeout | undefined;
+    try {
+      const result = await Promise.race([this.done, new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('Clean server shutdown timeout')), this.loaded.local.timeouts?.stop ?? 10_000);
+      })]);
+      if (result.status !== 'passed' || result.exitCode !== 0 || result.signal || result.error) throw new Error(`Server did not stop cleanly: ${result.status}; ${result.error ?? result.exitCode}`);
+      this.cleanStopped = true;
+      return result;
+    } finally { clearTimeout(timer); await this.stop(); }
+  }
+  /** Reuses this invocation's disposable world only after the entire first process has exited. */
+  async restart(signal?: AbortSignal): Promise<void> {
+    const prior = this.done && this.settled ? await this.done : undefined;
+    if (!this.cleanStopped || !prior || prior.status !== 'passed' || prior.exitCode !== 0 || prior.signal || prior.error) throw new Error('Restart requires a confirmed clean process exit through stopClean');
+    const record = JSON.parse(await readFile(path.join(this.directory, 'session.json'), 'utf8'));
+    if (record.owner !== this.owner) throw new Error('Server session ownership changed');
+    const launchFile = path.join(this.directory, '.craftatlas-launch.json');
+    try {
+      await assertContainedPath(this.directory, launchFile);
+      if (!(await lstat(launchFile)).isFile()) throw new Error('Capture launch identity is not an owned regular file');
+      const priorLaunch = JSON.parse(await readFile(launchFile, 'utf8'));
+      await writeFile(launchFile, JSON.stringify({ ...priorLaunch, schemaVersion: 1, launchNonce: randomUUID() }));
+    } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+    this.done = undefined; this.settled = false; this.controller = new AbortController();
+    this.output = ''; this.outputLength = 0;
+    this.ready = new Promise<void>(resolve => { this.resolveReady = resolve; });
+    await this.start(signal);
   }
   private async releasePort(): Promise<void> {
     if (this.reservation?.listening) await new Promise<void>(resolve => this.reservation!.close(() => resolve()));

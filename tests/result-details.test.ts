@@ -57,3 +57,22 @@ test('case detail files cannot escape the Run through symlinks', async t => {
   catch (error: any) { if (['EPERM', 'EACCES'].includes(error.code)) { t.skip('symlink creation unavailable'); return; } throw error; }
   await assert.rejects(retainResultDetails([{ id: 'case', status: 'unsupported', detail: { file: 'linked/detail.json', pointer: '' } }], path.join(root, 'results.json'), root), /outside/);
 });
+
+test('raw capture evidence is retained once and missing/tampered/unknown manifests fail inspection', async t => {
+  const root = await mkdtemp(path.join(tmpdir(), 'Foundry raw capture '));
+  t.after(() => rm(root,{recursive:true,force:true}));
+  const session = path.join(root,'sessions/target/survival'); await mkdir(path.join(session,'capture'),{recursive:true});
+  const result = path.join(session,'results.json'), companion = path.join(session,'detail.json'), raw = path.join(session,'capture/recipes.jsonl');
+  await writeFile(raw,'{"raw":"actual runtime"}\n'); await writeFile(result,'{}');
+  const digest = createHash('sha256').update(await readFile(raw)).digest('hex');
+  const data = {details:[{}],captureEvidence:{schemaVersion:1,files:[{file:'capture/recipes.jsonl',sha256:digest}]}};
+  await writeFile(companion,JSON.stringify(data));
+  const cases: TestCase[] = [{id:'case',status:'passed',detail:{file:'detail.json',pointer:'/details/0'}}];
+  assert.deepEqual(await retainResultDetails(cases,result,root),['sessions/target/survival/detail.json','sessions/target/survival/results.json','sessions/target/survival/capture/recipes.jsonl']);
+  assert.deepEqual(await validateCaseDetails(cases,root),[companion,raw]);
+  await writeFile(raw,'tampered'); await assert.rejects(validateCaseDetails(cases,root),/tampered capture evidence/);
+  await rm(raw); await assert.rejects(validateCaseDetails(cases,root),{code:'ENOENT'});
+  await writeFile(companion,JSON.stringify({...data,captureEvidence:{schemaVersion:2,files:[]}}));
+  await assert.rejects(validateCaseDetails(cases,root),/unsupported capture evidence/);
+});
+import {createHash} from 'node:crypto';

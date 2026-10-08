@@ -38,6 +38,7 @@ public final class FixtureMod {
     }
     private static void registerCommands(RegisterCommandsEvent event) {
         event.getDispatcher().register(Commands.literal("fixture").requires(source -> source.hasPermission(2))
+            .then(PersistenceFixture.commands())
             .then(Commands.literal("state").then(Commands.argument("pos", BlockPosArgument.blockPos()).executes(context -> {
                 var pos = BlockPosArgument.getLoadedBlockPos(context, "pos");
                 var entity = context.getSource().getLevel().getBlockEntity(pos);

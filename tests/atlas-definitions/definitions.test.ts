@@ -99,9 +99,11 @@ test('Foundry process suite executes custom cases through the default pin or exp
     suites: { acquisition: { driver: 'process', runtime: 'atlas', results: 'results.json', minTests: 10, expectedTests: c.cases!.map(c => c.id) } },
     runtimes: { atlas: { kind: 'server', capabilities: [], command: { executable: process.execPath, args: [resolve(root, 'scripts/atlas-survival.mjs'), '--config', '{projectRoot}/survival.json', '--results', '{sessionRoot}/results.json', ...sourceOptions, '--harness'] } } } }));
   const loaded = await loadConfig(project), run = () => executeRun(loaded, { command: 'test', targets: ['neoforge-1.21.1'] });
-  const passed = await run(); assert.equal(passed.status, 'passed', JSON.stringify(passed.targets));
-  assert.equal(passed.targets[0]!.suites[0]!.detected, 10);
-  const evidence = JSON.parse(readFileSync(join(project, '.harness/runs', passed.id, 'sessions/neoforge-1.21.1/acquisition/results.json.evidence.json'), 'utf8'));
+  const legacy = await run(); assert.equal(legacy.status, 'failed', JSON.stringify(legacy.targets));
+  assert.ok(legacy.targets[0]!.suites[0]!.cases.every(c => c.status === 'unsupported'));
+  assert.match(legacy.targets[0]!.suites[0]!.cases[0]!.message!, /Missing trusted expected build/);
+  assert.equal(legacy.targets[0]!.suites[0]!.detected, 10);
+  const evidence = JSON.parse(readFileSync(join(project, '.harness/runs', legacy.id, 'sessions/neoforge-1.21.1/acquisition/results.json.evidence.json'), 'utf8'));
   assert.equal(evidence.atlasSource, sourceOptions.length ? 'explicit-local-development' : 'pinned-submodule'); assert.match(evidence.atlasCommit, /^[a-f0-9]{40}$/);
   assert.deepEqual(evidence.datapack, fixture().datapack);
   assert.ok(evidence.definitionProcesses.find((p: { id: string }) => p.id === 'survival:press').fieldHistory.execution.length);

@@ -20,7 +20,7 @@ export interface TargetConfig {
   suiteBindings?: Record<string, { runtime?: string; pilot?: { backend: string; helper: string } }>;
 }
 export interface SuiteConfig {
-  driver: 'gradle' | 'process' | 'server-smoke' | 'client-smoke' | 'fixture-multiplayer' | 'fixture-multi-client' | 'unsupported';
+  driver: 'gradle' | 'process' | 'server-smoke' | 'server-persistence' | 'client-smoke' | 'fixture-multiplayer' | 'fixture-multi-client' | 'unsupported';
   task?: string;
   requiredCapabilities?: string[];
   expectedTests?: string[];
@@ -29,6 +29,7 @@ export interface SuiteConfig {
   results?: string;
   runtime?: string;
   pilot?: { backend: string; helper: string };
+  persistence?: { seed: { command: string; pattern: string; failurePattern?: string }[]; assertions: { id: string; command: string; pattern: string; failurePattern?: string }[] };
 }
 export interface RuntimeConfig {
   kind: 'server' | 'client' | 'multiplayer';

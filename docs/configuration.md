@@ -171,6 +171,8 @@ Add the suite to requiredSuites. `{java:game}` selects the target's game Java, `
 
 Tool locks require an exact version and 64-digit SHA-256; mutable `latest` is rejected. `local.tools` may point to matching bytes, otherwise the HTTPS lock URL is fetched. Downloads have a 512 MiB limit and never silently reuse invalid bytes. See [tools](tools.md).
 
+For a complete same-world dedicated process restart, use [server-persistence](persistence.md). Its seed/restoration probes are declared explicitly; shutdown timeout or forced termination cannot satisfy the clean-stop requirement.
+
 ## Java, display, consent, and timeouts
 
 ```json
@@ -200,3 +202,5 @@ Reports and JUnit live under `.harness/runs/<run-id>/`; evidence paths are relat
 With Foundry 0.1.7 or later, process-suite JSON cases may include `detail: { "file": "results.json.evidence.json", "pointer": "/details/0" }` and versioned survival diagnostic counts, as described in [survival diagnostics](survival.md#diagnostic-summaries-and-complete-details). Input detail paths are relative to the results file; retained report paths are relative to the Run. Companions must be regular JSON files inside the Run with resolvable RFC 6901 pointers. Missing files, unresolved pointers, unknown survival evidence versions and inconsistent counts fail inspection/retention. Preserve `suite.evidence` files with the report for portable CLI/JUnit/CI inspection. Full driver messages remain in JSON; JUnit abbreviates human text over 1,800 UTF-16 units and references the full detail/message. Ordinary results/reports without these optional fields remain compatible.
 
 Reports record config/tool/artifact hashes, resolved metadata, case results, Git revision, and source identity. Tracked dirty changes have a redacted patch and hash; untracked files have path/hash identities but no saved contents. Credentials are redacted and local Java/EULA state is not copied into shared configuration. Replay cannot restore missing dirty sources or local prerequisites: inspect `reproduction.limitations`.
+
+With 0.1.8, a survival companion may also declare `captureEvidence: {schemaVersion: 1, files: [{file, sha256}]}`. File paths resolve relative to the companion and must stay in the Run. Retention and report inspection hash-check every referenced raw capture, expected manifest and log, add them to `suite.evidence`, and reject missing/tampered or unknown-version evidence. Existing companions without this optional contract remain readable.
