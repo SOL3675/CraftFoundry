@@ -1,8 +1,11 @@
 import { copyFile, mkdir, readdir, readFile } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { assertContainedPath } from '../../dist/core/paths.js';
 import { validateCaseDetails } from '../../dist/reporting/result-details.js';
+import { validateStorageEvidenceSeal } from '../../dist/reporting/storage-evidence.js';
 
 export async function collectFixtureEvidence(root = fileURLToPath(new URL('../../', import.meta.url))) {
   const output = path.join(root, '.harness/ci/evidence');
@@ -45,6 +48,16 @@ export async function collectFixtureEvidence(root = fileURLToPath(new URL('../..
     }
     catch (error) { if (error.code === 'ENOENT' || error instanceof SyntaxError) report = {}; else throw error; }
     if (!report || typeof report !== 'object') report = {};
+    // Scoped seals authorize exact retained files independently of extension.
+    // They never authorize copying a runtime/cache/world directory wholesale.
+    if (report.storageEvidence !== undefined && !Array.isArray(report.storageEvidence)) throw new Error('Invalid storage evidence references');
+    const sealed = [];
+    for (const reference of report.storageEvidence ?? []) {
+      const manifest = await validateStorageEvidenceSeal(directory, reference);
+      sealed.push({ reference, manifest });
+      await copy(path.join(directory, reference.file), path.join(relative, reference.file));
+      for (const file of manifest.files) await copy(path.join(directory, file.path), path.join(relative, file.path));
+    }
     const detailFiles = await validateCaseDetails((report.targets ?? []).flatMap(target => (target.suites ?? []).flatMap(suite => suite.cases ?? [])), directory);
     const detailPaths = new Set(detailFiles.map(file => path.relative(directory, file).replaceAll('\\', '/')));
     const evidence = new Set((report.targets ?? []).flatMap(target => (target.suites ?? []).flatMap(suite => [...(suite.logs ?? []), ...(suite.evidence ?? [])])));
@@ -68,6 +81,18 @@ export async function collectFixtureEvidence(root = fileURLToPath(new URL('../..
       }
     };
     await scanSession(path.join(directory, 'sessions'));
+    // Catch changes during export and verify the exported bytes themselves,
+    // including files that the ordinary salvage pass may also have copied.
+    for (const { reference, manifest } of sealed) {
+      await validateStorageEvidenceSeal(directory, reference);
+      for (const file of [{ path: reference.file, sha256: reference.sha256 }, ...manifest.files]) {
+        const destination = path.join(output, relative, file.path);
+        await assertContainedPath(output, destination);
+        const hash = createHash('sha256'); let bytes = 0;
+        for await (const chunk of createReadStream(destination)) { hash.update(chunk); bytes += chunk.length; }
+        if (hash.digest('hex') !== file.sha256 || file.size !== undefined && bytes !== file.size) throw new Error(`Exported storage evidence changed: ${file.path}`);
+      }
+    }
   }
   console.log(JSON.stringify({ evidenceDirectory: '.harness/ci/evidence', files: count }));
 }

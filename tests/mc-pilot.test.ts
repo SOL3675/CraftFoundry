@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { realpath, mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createServer } from 'node:net';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { McPilotRuntimeAdapter } from '../dist/adapters/runtime/mc-pilot.js';
+import { cleanupStorage, createStorageUnit, finalizeStorageUnit } from '../dist/core/storage.js';
+import { saveReport } from '../dist/reporting/report.js';
+import type { RunReport } from '../src/reporting/types.ts';
 
 // These are backend protocol/ownership fixtures, not Minecraft test results.
 async function fixture(t: test.TestContext, extra: Record<string, unknown> = {}) {
@@ -173,5 +176,65 @@ test('helper-free client smoke removes only the known owned helper before launch
   assert.equal(launch.helperEnabled, false);
   await assert.rejects(readFile(client.helperJar), /ENOENT/u);
   await adapter.stop();
+});
+
+test('opt-in shared assets seed fresh external session caches without sharing game state', async t => {
+  const { dir, backendRoot, wsPort } = await fixture(t);
+  const source = join(backendRoot, 'dist/download/client/ClientDownloader.js');
+  const original = await readFile(source, 'utf8');
+  const content = Buffer.from('downloaded reusable asset'); const hash = createHash('sha1').update(content).digest('hex');
+  await writeFile(source, original.replace('return{minecraftDir,', `const assetDir=join(process.env.MCT_CACHE_DIR,'client','runtime',options.version,'assets','objects','${hash.slice(0, 2)}');await mkdir(assetDir,{recursive:true});await writeFile(join(assetDir,'${hash}'),'downloaded reusable asset');return{minecraftDir,`));
+  const sharedAssets = join(dir, 'shared-assets');
+  const make = (name: string) => new McPilotRuntimeAdapter({ backendRoot, runDir: join(dir, name), cacheDir: join(dir, `${name}-cache`), sharedAssets, clientName: name, minecraft: '1.21.1', loader: 'fabric', java: process.execPath, wsPort });
+  const first = make('first'); const second = make('second');
+  t.after(async () => { try { await first.stop(); } catch {} try { await second.stop(); } catch {} });
+  const firstClient = await first.create(); await first.stop();
+  assert.equal((firstClient.sharedAssets as { importedFiles: number }).importedFiles, 1);
+  await writeFile(join(firstClient.minecraftDir, 'options.txt'), 'first session settings');
+  await mkdir(join(firstClient.minecraftDir, 'saves')); await writeFile(join(firstClient.minecraftDir, 'saves', 'level.dat'), 'world');
+  const secondClient = await second.create(); await second.stop();
+  const stats = secondClient.sharedAssets as { clonedFiles: number; copiedFiles: number; clonedBytes: number; copiedBytes: number };
+  assert.equal(stats.clonedFiles + stats.copiedFiles, 1);
+  assert.equal(stats.clonedBytes + stats.copiedBytes, content.length);
+  assert.deepEqual(await readFile(join(second.cache, 'client/runtime/1.21.1/assets/objects', hash.slice(0, 2), hash)), content);
+  await assert.rejects(readFile(join(secondClient.minecraftDir, 'options.txt')), /ENOENT/u);
+  await assert.rejects(readFile(join(secondClient.minecraftDir, 'saves', 'level.dat')), /ENOENT/u);
+  await writeFile(join(second.cache, 'client/runtime/1.21.1/assets/objects', hash.slice(0, 2), hash), 'session mutation');
+  assert.deepEqual(await readFile(join(sharedAssets, '1.21.1', 'objects', hash.slice(0, 2), hash)), content);
+});
+
+test('mc-pilot cleanup fails when process disposal reports an error despite a successful exit', async t => {
+  const { adapter } = await fixture(t);
+  Object.assign(adapter, { process: Promise.resolve({ status: 'passed', error: 'owned process disposal was not verified' }) });
+  await assert.rejects(adapter.stop(), /could not verify process disposal/u);
+});
+
+test('managed mc-pilot lifecycle seals retained evidence before reclaiming only stopped dependencies', async t => {
+  const { dir, backendRoot, wsPort } = await fixture(t);
+  const source = join(backendRoot, 'dist/download/client/ClientDownloader.js');
+  const original = await readFile(source, 'utf8');
+  await writeFile(source, original.replace('return{minecraftDir,', `const libs=join(process.env.MCT_CACHE_DIR,'client','runtime',options.version,'libraries');await mkdir(libs,{recursive:true});await writeFile(join(libs,'dependency.jar'),Buffer.alloc(4096,7));return{minecraftDir,`));
+  const cacheDir = join(dir, '.harness', 'c', randomUUID(), 'mct-cache');
+  const evidenceRoot = join(dir, '.harness', 'runs', 'managed-fixture');
+  const handle = await createStorageUnit(dir, join(cacheDir, 'client'));
+  await mkdir(dirname(cacheDir), { recursive: true });
+  const adapter = new McPilotRuntimeAdapter({ backendRoot, runDir: join(evidenceRoot, 'sessions', 'pilot'), cacheDir, clientName: 'managed', minecraft: '1.21.1', loader: 'fabric', java: process.execPath, wsPort });
+  t.after(async () => { try { await adapter.stop(); } catch {} });
+  const client = await adapter.create();
+  await mkdir(join(client.minecraftDir, 'saves')); await writeFile(join(client.minecraftDir, 'saves', 'level.dat'), 'retained world');
+  assert.equal((await cleanupStorage(dir)).reclaimableBytes, 0);
+  const launched = await adapter.launch(); const pid = Number(launched.pid);
+  const stopped = await adapter.stop(); assert.equal(stopped?.status, 'passed'); await waitForOwnedExit(pid);
+  const report: RunReport = { schemaVersion: 1, id: 'managed-fixture', command: 'mch test', startedAt: new Date().toISOString(), finishedAt: new Date().toISOString(), status: 'failed', harnessVersion: 'test', platform: { os: process.platform, arch: process.arch, node: process.version }, source: { limitations: [] }, configuration: {}, lock: {}, targets: [], reproduction: { command: 'mch test', limitations: [] } };
+  await saveReport(evidenceRoot, report);
+  await finalizeStorageUnit(dir, handle, { stopped: true, evidenceRoot });
+  const preview = await cleanupStorage(dir); assert.equal(preview.reclaimableBytes, 4096); assert.equal(preview.deletedBytes, 0);
+  const applied = await cleanupStorage(dir, { apply: true, unitIds: [handle.id] });
+  assert.deepEqual(applied.errors, []); assert.equal(applied.deletedBytes, 4096);
+  await assert.rejects(readFile(join(cacheDir, 'client', 'runtime', '1.21.1', 'libraries', 'dependency.jar')), /ENOENT/u);
+  assert.equal(await readFile(join(client.minecraftDir, 'saves', 'level.dat'), 'utf8'), 'retained world');
+  assert.equal(await readFile(client.helperJar, 'utf8'), 'helper fixture');
+  assert.ok((await readFile(join(evidenceRoot, 'sessions', 'pilot', 'broker-logs', 'stdout.log'))).length > 0);
+  assert.equal(JSON.parse(await readFile(join(evidenceRoot, 'report.json'), 'utf8')).status, 'failed');
 });
 

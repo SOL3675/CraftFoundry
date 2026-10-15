@@ -8,6 +8,7 @@ import { readReport } from '../reporting/report.js';
 import { redact } from '../reporting/redact.js';
 import { installSkills } from '../core/skills.js';
 import { installMcPilot } from '../core/tools.js';
+import { inventoryStorage, cleanupStorage } from '../core/storage.js';
 
 const usage = `CraftFoundry ${version} — Minecraft mod development harness (mch)
 
@@ -20,6 +21,7 @@ mch test --all --profile release [--json]
 mch report --run <id> [--json]
 mch skills install --destination <directory> [--json]
 mch tools install mc-pilot [--project <directory>] [--json]
+mch storage [--clean [--apply] [--unit <id>]] [--json]
 
 Global: --project <directory>, --help, --version
 `;
@@ -36,21 +38,28 @@ async function main(): Promise<void> {
   const json = args.includes('--json');
   try {
     const command = args.shift();
-    if (!command || !['doctor', 'targets', 'inspect', 'build', 'test', 'report', 'skills', 'tools'].includes(command)) throw new Error(`Unknown command: ${command}`);
+    if (!command || !['doctor', 'targets', 'inspect', 'build', 'test', 'report', 'skills', 'tools', 'storage'].includes(command)) throw new Error(`Unknown command: ${command}`);
     if (command === 'skills' && args.shift() !== 'install') throw new Error('skills requires the install subcommand');
     if (command === 'tools' && (args.shift() !== 'install' || args.shift() !== 'mc-pilot')) throw new Error('tools requires install mc-pilot');
     const flags = new Map<string, string[]>();
     for (let i = 0; i < args.length; i++) {
       const flag = args[i]!;
-      if (!['--json', '--all', '--target', '--suite', '--profile', '--run', '--project', '--destination', '--npm-command'].includes(flag)) throw new Error(`Unknown option: ${flag}`);
-      const value = ['--json', '--all'].includes(flag) ? 'true' : args[++i];
+      if (!['--json', '--all', '--target', '--suite', '--profile', '--run', '--project', '--destination', '--npm-command', '--clean', '--apply', '--unit'].includes(flag)) throw new Error(`Unknown option: ${flag}`);
+      const value = ['--json', '--all', '--clean', '--apply'].includes(flag) ? 'true' : args[++i];
       if (!value || value.startsWith('--')) throw new Error(`Missing value for ${flag}`);
       if (flags.has(flag) && flag !== '--suite') throw new Error(`Duplicate option: ${flag}`);
       flags.set(flag, [...(flags.get(flag) ?? []), value]);
     }
-    const allowed: Record<string, string[]> = { doctor: [], targets: [], inspect: ['--target', '--all'], build: ['--target', '--all'], test: ['--target', '--all', '--suite', '--profile'], report: ['--run'], skills: ['--destination'], tools: ['--npm-command'] };
+    const allowed: Record<string, string[]> = { doctor: [], targets: [], inspect: ['--target', '--all'], build: ['--target', '--all'], test: ['--target', '--all', '--suite', '--profile'], report: ['--run'], skills: ['--destination'], tools: ['--npm-command'], storage: ['--clean', '--apply', '--unit'] };
     for (const flag of flags.keys()) if (!['--json', '--project', ...allowed[command]!].includes(flag)) throw new Error(`${flag} is not valid for ${command}`);
     const root = path.resolve(flags.get('--project')?.[0] ?? process.cwd());
+    if (command === 'storage') {
+      if (!flags.has('--clean') && (flags.has('--apply') || flags.has('--unit'))) throw new Error('--apply and --unit require --clean');
+      const result = flags.has('--clean') ? await cleanupStorage(root, { apply: flags.has('--apply'), unitIds: flags.get('--unit') }) : await inventoryStorage(root);
+      output(result, json);
+      if ('errors' in result && Array.isArray(result.errors) && result.errors.length) process.exitCode = 2;
+      return;
+    }
     if (command === 'tools') {
       const controller = new AbortController(); const cancel = () => controller.abort();
       process.once('SIGINT', cancel); process.once('SIGTERM', cancel);

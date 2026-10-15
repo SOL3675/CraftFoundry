@@ -5,11 +5,14 @@ import { fileURLToPath } from 'node:url';
 import { runProcess } from '../../platform/process.js';
 import type { ProcessResult } from '../../platform/process.js';
 import { cleanupNativeAliases } from './native-paths.js';
+import { SharedAssets } from '../../core/shared-assets.js';
 
 export const MC_PILOT_VERSION = '0.15.0';
 export interface McPilotOptions {
   backendRoot: string;
   runDir: string;
+  /** Explicit fresh project-managed cache directory; defaults to runDir/mct-cache. */
+  cacheDir?: string;
   clientName: string;
   minecraft: string;
   loader: 'fabric' | 'forge' | 'neoforge';
@@ -19,6 +22,8 @@ export interface McPilotOptions {
   downloadConcurrency?: number;
   /** Read-only content-addressed asset objects, never platform libraries or ready markers. */
   assetCache?: string;
+  /** Opt-in project-owned content-addressed asset store; sessions use isolated clones/copies. */
+  sharedAssets?: string;
   java: string;
   wsPort: number;
   account?: string;
@@ -57,6 +62,7 @@ export class McPilotRuntimeAdapter {
   private lines = '';
   private assetSeed?: { objects: number; bytes: number; indexes?: number };
   private nativeOwner = randomUUID();
+  private sharedAssets?: SharedAssets;
 
   constructor(options: McPilotOptions) {
     if (!/^[a-zA-Z0-9_-]+$/u.test(options.clientName)) throw new Error('mc-pilot client name must contain only letters, digits, hyphens and underscores');
@@ -66,8 +72,13 @@ export class McPilotRuntimeAdapter {
     if (options.loaderVersion && !/^\d+(?:\.\d+){1,3}(?:-[a-zA-Z0-9.]+)?$/u.test(options.loaderVersion)) throw new Error('Invalid explicit mc-pilot loader version');
     if (options.downloadConcurrency !== undefined && (!Number.isInteger(options.downloadConcurrency) || options.downloadConcurrency < 1 || options.downloadConcurrency > 16)) throw new Error('Download concurrency must be an integer from 1 to 16');
     if (options.assetCache !== undefined && !isAbsolute(options.assetCache)) throw new Error('Asset cache must be an explicit absolute directory');
+    if (options.cacheDir !== undefined && !isAbsolute(options.cacheDir)) throw new Error('Session cache must be an explicit absolute directory');
+    if (options.sharedAssets !== undefined) {
+      if (!isAbsolute(options.sharedAssets)) throw new Error('Shared assets require an absolute project-owned root');
+      this.sharedAssets = new SharedAssets(join(options.sharedAssets, options.minecraft), options.signal);
+    }
     this.options = options;
-    this.home = resolve(options.runDir, 'mct-home'); this.cache = resolve(options.runDir, 'mct-cache');
+    this.home = resolve(options.runDir, 'mct-home'); this.cache = resolve(options.cacheDir ?? join(options.runDir, 'mct-cache'));
   }
 
   private rejectPending(error: Error): void {
@@ -82,6 +93,10 @@ export class McPilotRuntimeAdapter {
     // Refuse existing state: this adapter never recovers ownership from a PID.
     await mkdir(this.home);
     await mkdir(this.cache);
+    if (this.sharedAssets) {
+      await this.sharedAssets.initialize();
+      await this.sharedAssets.seed(join(this.cache, 'client', 'runtime', this.options.minecraft, 'assets'));
+    }
     if (this.options.assetCache) {
       const source = await realpath(this.options.assetCache);
       const destination = join(this.cache, 'client', 'runtime', this.options.minecraft, 'assets', 'objects');
@@ -97,7 +112,9 @@ export class McPilotRuntimeAdapter {
           const content = await readFile(file);
           if (createHash('sha1').update(content).digest('hex') !== entry.name) throw new Error(`Asset seed SHA-1 mismatch: ${entry.name}`);
           await mkdir(join(destination, prefix.name), { recursive: true });
-          await writeFile(join(destination, prefix.name, entry.name), content, { flag: 'wx' }); seeded.bytes += content.length;
+          if (this.sharedAssets) await this.sharedAssets.materialize('objects', entry.name, content, join(destination, prefix.name, entry.name));
+          else await writeFile(join(destination, prefix.name, entry.name), content, { flag: 'wx' });
+          seeded.bytes += content.length;
         }
       }
       const indexes = join(dirname(source), 'indexes');
@@ -110,7 +127,9 @@ export class McPilotRuntimeAdapter {
         const index = JSON.parse(content.toString('utf8')) as { objects?: Record<string, { hash?: string; size?: number }> };
         if (!index.objects || typeof index.objects !== 'object' || Array.isArray(index.objects) || Object.keys(index.objects).length > 100_000 || Object.values(index.objects).some(item => !item || typeof item.hash !== 'string' || !/^[a-f0-9]{40}$/u.test(item.hash) || !Number.isInteger(item.size) || item.size! < 0)) throw new Error('Invalid content-addressed asset index seed');
         const targetIndexes = join(this.cache, 'client', 'runtime', this.options.minecraft, 'assets', 'indexes');
-        await mkdir(targetIndexes, { recursive: true }); await writeFile(join(targetIndexes, entry.name), content, { flag: 'wx' });
+        await mkdir(targetIndexes, { recursive: true });
+        if (this.sharedAssets) await this.sharedAssets.materialize('indexes', entry.name, content, join(targetIndexes, entry.name));
+        else await writeFile(join(targetIndexes, entry.name), content, { flag: 'wx' });
         seeded.indexes = (seeded.indexes ?? 0) + 1; seeded.bytes += content.length;
       }
       this.assetSeed = seeded;
@@ -167,7 +186,8 @@ export class McPilotRuntimeAdapter {
     const helperSha256 = createHash('sha256').update(await readFile(helperJar)).digest('hex');
     const expectedHelperSha256 = this.options.expectedHelperSha256 ?? this.options.helperArtifact?.sha256;
     if (expectedHelperSha256 && helperSha256 !== expectedHelperSha256.toLowerCase()) throw new Error('mc-pilot helper JAR hash does not match the pinned helper');
-    this.client = { ...downloaded, name: this.options.clientName, wsPort: this.options.wsPort, helperJar, helperSha256, minecraftDir: await this.ownedPath(String(downloaded.minecraftDir)), modsDir: await this.ownedPath(String(downloaded.modsDir)), ...(this.assetSeed ? { assetSeed: this.assetSeed } : {}) };
+    if (this.sharedAssets) await this.sharedAssets.capture(join(this.cache, 'client', 'runtime', this.options.minecraft, 'assets'));
+    this.client = { ...downloaded, name: this.options.clientName, wsPort: this.options.wsPort, helperJar, helperSha256, minecraftDir: await this.ownedPath(String(downloaded.minecraftDir)), modsDir: await this.ownedPath(String(downloaded.modsDir)), ...(this.assetSeed ? { assetSeed: this.assetSeed } : {}), ...(this.sharedAssets ? { sharedAssets: { ...this.sharedAssets.stats } } : {}) };
     return this.client;
   }
 
@@ -235,6 +255,7 @@ export class McPilotRuntimeAdapter {
     // process tree. A completed cancellation is successful cleanup; request
     // deadlines and unrelated broker failures still remain cleanup failures.
     if (result && result.status !== 'passed' && !(result.status === 'cancelled' && this.options.signal?.aborted)) throw new Error(`mc-pilot cleanup did not finish normally: ${result.status}`);
+    if (result?.error) throw new Error(`mc-pilot cleanup could not verify process disposal: ${result.error}`);
     return result;
   }
 }

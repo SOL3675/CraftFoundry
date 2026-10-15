@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { createServer } from 'node:net';
+import { randomUUID } from 'node:crypto';
 import { lstat, mkdir, readFile, writeFile } from 'node:fs/promises';
-import { join, relative, resolve } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import type { Artifact, LoadedConfig, RuntimeConfig } from '../../core/types.js';
 import type { TestCase } from '../../reporting/types.js';
 import { redactText } from '../../reporting/redact.js';
@@ -9,6 +10,7 @@ import { collectCrashReports } from '../../reporting/evidence.js';
 import { OwnedServer } from '../runtime/server.js';
 import { McPilotRuntimeAdapter } from '../runtime/mc-pilot.js';
 import { assertContainedPath } from '../../core/paths.js';
+import { createStorageUnit, createStorageReservation, acquireStorageLease, type StorageUnitHandle, type StorageLeaseHandle } from '../../core/storage.js';
 
 export const FIXTURE_MULTIPLAYER_CASE_IDS = ['multiplayer.connected', 'multiplayer.placed', 'multiplayer.gui', 'multiplayer.sync', 'multiplayer.reconnected', 'multiplayer.stopped'] as const;
 export const FIXTURE_MULTI_CLIENT_CASE_IDS = ['multi-client.connected', 'multi-client.placed', 'multi-client.gui', 'multi-client.sync', 'multi-client.peer-sync', 'multi-client.reconnected', 'multi-client.stopped'] as const;
@@ -30,6 +32,8 @@ export interface PilotTestOptions {
   clients?: number;
   /** Optional immutable assets/objects seed; all copied objects are hash checked. */
   assetCache?: string;
+  onStorageUnitStopped?: (unit: StorageUnitHandle) => void;
+  onStorageLeaseStopped?: (reservation: StorageUnitHandle, lease: StorageLeaseHandle, cacheDir: string) => void;
 }
 export interface PilotTestResult { cases: TestCase[]; logs: string[]; evidence: string[]; metadata: Record<string, unknown> }
 
@@ -109,19 +113,34 @@ async function runPilotTest(loaded: LoadedConfig, targetId: string, runtime: Run
   const server = new OwnedServer(loaded, targetId, runtime, join(sessionRoot, 'server'), join(sessionRoot, 'server-process'));
   let client: McPilotRuntimeAdapter | undefined;
   let peer: McPilotRuntimeAdapter | undefined;
+  const storageUnits = new Map<McPilotRuntimeAdapter, { unit: StorageUnitHandle; lease?: StorageLeaseHandle; cacheDir: string }>();
+  const stoppedStorageUnits: Array<{ unit: StorageUnitHandle; lease?: StorageLeaseHandle; cacheDir: string }> = [];
+  let lifecycleComplete = false;
   const conditionTimeout = Math.min(loaded.local.timeouts?.test ?? 30_000, 30_000);
   const username = smoke ? 'MchSmoke' : 'MchTest';
   try {
     if (!javaHome) throw new Error('A game Java role with an explicit local home is required');
     const wsPort = await availablePort();
-    const makeClient = (directory: string, name: string, account: string, port: number) => new McPilotRuntimeAdapter({ backendRoot: options.backendRoot, runDir: join(sessionRoot, directory), clientName: name, minecraft: target!.minecraft, loader: target!.loader as 'fabric' | 'forge' | 'neoforge', loaderVersion: target.loaderVersion, downloadConcurrency: process.platform === 'linux' ? 2 : undefined, assetCache: options.assetCache, java: join(javaHome, 'bin', process.platform === 'win32' ? 'java.exe' : 'java'), wsPort: port, account, helperArtifact: options.helperArtifact, signal: options.signal, requestTimeoutMs: loaded.local.timeouts?.build ?? 600_000, sessionTimeoutMs: loaded.local.timeouts?.test ?? 600_000, stopTimeoutMs: loaded.local.timeouts?.stop ?? 30_000, redact: redactText });
-    client = makeClient('client', smoke ? 'smoke-client' : 'fixture-client', username, wsPort);
+    const makeClient = async (directory: string, name: string, account: string, port: number) => {
+      const cacheDir = loaded.local.storage?.managedCaches ? join(loaded.root, '.harness', 'c', randomUUID(), 'mct-cache') : undefined;
+      if (cacheDir) {
+        await assertContainedPath(loaded.root, cacheDir);
+        await mkdir(dirname(cacheDir), { recursive: true });
+      }
+      const phased = loaded.local.storage?.cleanup === 'after-suite';
+      const unit = cacheDir ? await (phased ? createStorageReservation : createStorageUnit)(loaded.root, join(cacheDir, 'client')) : undefined;
+      const lease = unit && phased ? await acquireStorageLease(loaded.root, unit) : undefined;
+      const selected = new McPilotRuntimeAdapter({ backendRoot: options.backendRoot, runDir: join(sessionRoot, directory), cacheDir, sharedAssets: loaded.local.storage?.sharedAssets ? join(loaded.root, '.harness', 'cache', 'shared-assets') : undefined, clientName: name, minecraft: target!.minecraft, loader: target!.loader as 'fabric' | 'forge' | 'neoforge', loaderVersion: target.loaderVersion, downloadConcurrency: process.platform === 'linux' ? 2 : undefined, assetCache: options.assetCache, java: join(javaHome, 'bin', process.platform === 'win32' ? 'java.exe' : 'java'), wsPort: port, account, helperArtifact: options.helperArtifact, signal: options.signal, requestTimeoutMs: loaded.local.timeouts?.build ?? 600_000, sessionTimeoutMs: loaded.local.timeouts?.test ?? 600_000, stopTimeoutMs: loaded.local.timeouts?.stop ?? 30_000, redact: redactText });
+      if (unit) storageUnits.set(selected, { unit, lease, cacheDir: selected.cache });
+      return selected;
+    };
+    client = await makeClient('client', smoke ? 'smoke-client' : 'fixture-client', username, wsPort);
     await server.prepare(artifacts, artifactRoot, options.signal); await server.start(options.signal); await server.waitReady();
     await record('server-ready', { port: server.port }); metadata.serverPort = server.port;
     const prepared = await client.create(); metadata.client = portable(prepared); metadata.wsPort = wsPort;
     if (multi) {
       let peerPort = await availablePort(); while (peerPort === wsPort) peerPort = await availablePort();
-      peer = makeClient('peer', 'peer-client', 'MchPeer', peerPort);
+      peer = await makeClient('peer', 'peer-client', 'MchPeer', peerPort);
       metadata.peer = portable(await peer.create()); metadata.peerWsPort = peerPort;
     }
     for (const artifact of artifacts.filter(item => ['distribution', 'runtime-dependency'].includes(item.kind) && ['both', 'client'].includes(item.side))) await client.deployMod(join(artifactRoot, artifact.path), artifact.sha256);
@@ -204,12 +223,17 @@ async function runPilotTest(loaded: LoadedConfig, targetId: string, runtime: Run
   } finally {
     const cleanup = cases.at(-1)!; const failures: string[] = [];
     for (const [name, selected] of [['Peer', peer], ['Client', client]] as const) {
-      try { const result = await selected?.stop(); if (result) logs.push(reportPath(result.logs.stdout), reportPath(result.logs.stderr)); }
+      try {
+        const result = await selected?.stop();
+        if (result) logs.push(reportPath(result.logs.stdout), reportPath(result.logs.stderr));
+        const unit = selected && storageUnits.get(selected);
+        if (unit && result?.status === 'passed' && !result.error) stoppedStorageUnits.push(unit);
+      }
       catch (error) { failures.push(`${name} cleanup: ${(error as Error).message}`); }
     }
     try {
       const result = await server.stop();
-      if (result) { logs.push(reportPath(result.logs.stdout), reportPath(result.logs.stderr)); if (result.exitCode !== 0) failures.push(`Server cleanup ended with ${result.status}, exit ${result.exitCode}`); }
+      if (result) { logs.push(reportPath(result.logs.stdout), reportPath(result.logs.stderr)); if (result.status !== 'passed' || result.exitCode !== 0 || result.error) failures.push(`Server cleanup ended with ${result.status}, exit ${result.exitCode}${result.error ? `: ${result.error}` : ''}`); }
       for (const file of await server.collectEvidence()) evidence.push(reportPath(join(server.directory, file)));
     } catch (error) { failures.push(`Server cleanup: ${(error as Error).message}`); }
     cleanup.status = failures.length ? 'infrastructure-error' : 'passed'; cleanup.message = failures.length ? failures.join('; ') : undefined;
@@ -234,6 +258,13 @@ async function runPilotTest(loaded: LoadedConfig, targetId: string, runtime: Run
         catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
       }
     }
+    lifecycleComplete = failures.length === 0;
+  }
+  // Publish shutdown attestations only after every retained log/evidence write
+  // above has succeeded. An evidence error must leave the unit active.
+  if (lifecycleComplete) for (const { unit, lease, cacheDir } of stoppedStorageUnits) {
+    if (lease) options.onStorageLeaseStopped?.(unit, lease, cacheDir);
+    else options.onStorageUnitStopped?.(unit);
   }
   return { cases, logs: [...new Set(logs)], evidence: [...new Set(evidence)], metadata };
 }

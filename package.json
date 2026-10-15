@@ -1,6 +1,6 @@
 {
   "name": "craft-foundry",
-  "version": "0.1.8",
+  "version": "0.1.11",
   "description": "CraftFoundry \u2014 reproducible Minecraft mod build and validation harness",
   "private": true,
   "license": "MIT",
@@ -57,6 +57,10 @@
     "./core/cache": {
       "types": "./dist/core/cache.d.ts",
       "default": "./dist/core/cache.js"
+    },
+    "./core/storage": {
+      "types": "./dist/core/storage.d.ts",
+      "default": "./dist/core/storage.js"
     },
     "./core/tools": {
       "types": "./dist/core/tools.d.ts",

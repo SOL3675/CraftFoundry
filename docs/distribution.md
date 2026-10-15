@@ -6,10 +6,10 @@ Use Node.js 24.19.0 and npm 11.9.0 when producing reproducible consumer packages
 npm ci --ignore-scripts
 npm run check
 npm pack
-npm run test:consumer -- --package craft-foundry-0.1.8.tgz
+npm run test:consumer -- --package craft-foundry-0.1.11.tgz
 ```
 
-`prepack` builds TypeScript. The package includes the CLI, seven explicit consumer API subpaths, schemas, Skills, templates, docs, fixtures, root LICENSE, and existing fixture/Gradle notices. Fixture binary and source JARs include their existing MIT license in `META-INF/LICENSE`. The package excludes caches, machine configuration, game downloads, credentials, and run evidence. Review `npm pack --dry-run --json` when changing the package allowlist. Verify a real packed consumer, not only this source checkout.
+`prepack` builds TypeScript. The package includes the CLI, eight explicit consumer API subpaths, schemas, Skills, templates, docs, fixtures, root LICENSE, and existing fixture/Gradle notices. Fixture binary and source JARs include their existing MIT license in `META-INF/LICENSE`. The package excludes caches, machine configuration, game downloads, credentials, and run evidence. Review `npm pack --dry-run --json` when changing the package allowlist. Verify a real packed consumer, not only this source checkout.
 
 ## CraftAtlas consumer
 
@@ -36,7 +36,7 @@ Foundry root install/build/pack must never install Atlas, recurse into submodule
 Create the tarball in a reviewed source checkout, copy it into an ignored local dependency directory in the consumer, and install it with an exact file dependency:
 
 ```console
-npm install --save-dev --save-exact ./craft-foundry-0.1.8.tgz --ignore-scripts
+npm install --save-dev --save-exact ./craft-foundry-0.1.11.tgz --ignore-scripts
 npx mch --help
 ```
 
@@ -46,10 +46,12 @@ Use [existing-project](../templates/existing-project/README.md) and [configurati
 
 Keep package version, schemas, and Skills together. Update consumer Skills with `mch skills install --destination .agents/skills --json`; inspect preserved edits before replacing any customization. Existing Mod source copies are not automatically upgraded.
 
+Storage policies are opt-in and keep configuration/report schema version 1. New reports containing `storageEvidence` require a 0.1.10-or-later reader; ordinary older reports remain readable. Upgrade the packed package and its Skills together, then run `mch storage --json` and `mch storage --clean --json` in the consumer before selecting a local storage policy. `after-suite` additionally requires lease/reservation lifecycle and report-linked scoped evidence; custom drivers must follow the [storage API order](storage.md#runtime-integration-api). Windows short project-root spellings normalize to the same canonical project for cache/evidence containment checks; managed-path link and junction exclusions remain in force. Existing unmarked caches and historical Runs are retained. Validate the candidate in a disposable consumer with synthetic data; a passing contract test or a smaller logical inventory does not establish real-game correctness or physical disk savings. Apply cleanup to existing user data only after reviewing its exact preview and obtaining the relevant authorization.
+
 Before merging, review diff and package contents and use meaningful commit messages for rationale. An initial squash merge does not erase prior dev commits, PR history, or copies of that history. Push, merge, visibility changes, and npm publication are separate operations.
 
 For harness development, the commands at the top run TypeScript and dummy-runtime contracts, not Minecraft validation. Initialize the exact gitlink and run `npm run check:atlas`, `npm run test:atlas`, and `npm run test:atlas:definitions` for four-target saved-data integration. Use a fresh clone with `git submodule update --init projects/craft-atlas`, without `--atlas-source`, before accepting a pin change. Keep developer fixtures and regression procedures here and in the survival guide; the root READMEs address package users.
 
-The consumer check installs the actual tarball into an empty project, imports all seven explicit API subpaths, lists packaged targets, installs Skills and checks acquisition template boundaries. Add `--previous <0.1.5-tarball>` to exercise an actual package upgrade: untouched Skills receive new hash/version provenance while a customized setup Skill retains its original record. CI runs the installed-package check after packing.
+The consumer check installs the actual tarball into an empty project, imports all eight explicit API subpaths, lists packaged targets, installs Skills and checks acquisition template boundaries. Add `--previous <0.1.5-tarball>` to exercise an actual package upgrade: untouched Skills receive new hash/version provenance while a customized setup Skill retains its original record. CI runs the installed-package check after packing.
 
 Foundry 0.1.8 exports `core/capture-identity` with `captureIdentityContractVersion = 1`. Automatic fresh survival capture requires the matching Atlas collector and source API marker; the recorded reachable Atlas candidate pin supplies both and enables the default integration path. Review and merge Atlas first, then Foundry; if Atlas is squash-merged, update this gitlink to its final reachable reviewed SHA and repeat default-pin integration. Do not lock this branch to an unpushed Atlas commit or update Atlas's independent Foundry bootstrap pin to the parent feature tip. Validate candidate packages through a disposable overlay as described in the survival guide.

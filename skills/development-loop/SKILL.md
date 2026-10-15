@@ -9,6 +9,10 @@ After implementing a change, run `mch build --target <id> --json`, followed by t
 
 Use `mch report --run <run-id> --json` to inspect case statuses, detection counts, artifact hashes and failure evidence. Do not accept an exit code alone as proof of tests. Report unsupported, skipped, zero-detected and unstable retry results accurately. Before a release, execute `mch test --all --profile release --json` with every required suite.
 
+For repeated game runs, inspect `mch storage --json` and use the opt-in local policy in `docs/storage.md`. `mch storage --clean --json` is a preview; `--apply` requires authorization for its exact targets. Only newly managed dependency caches with stopped owners and finalized verified evidence qualify. Keep worlds, settings, failed-run evidence and historical unmarked caches. Runtime `cleanup: true` still means process shutdown. Never weaken hashes or remove evidence to make a unit eligible.
+
+With opt-in `cleanup: "after-suite"`, preserve an open reservation across restart gaps and acquire a lease for each process phase. Mid-Run cleanup requires positively stopped processes, complete immutable scoped seals attached to the saved report, released leases and a reservation closed after final use. Follow `docs/storage.md` for custom driver ordering; do not remove earlier `storageEvidence` references when saving later results. Clone/copy asset reuse does not directly share game-visible files.
+
 
 When a change adds or alters crafting, a custom serializer/machine, drops, harvesting, world generation, trades or a Java acquisition hook, explicitly inspect the current Atlas capture and the affected item selection. For Fabric/NeoForge 1.21.1 or Forge/Fabric 1.20.1 use the repository-only `docs/survival.md` and `templates/acquisition/README.md`; an installed npm package alone does not supply the Atlas runner. Review whether a built-in normalizer covers the mechanism. Add/update a version-scoped, evidence-backed DefinitionPack and a `mechanisms` entry when custom semantics are needed, or retain an `unknown` reason for unverifiable hooks. Do not turn ingredient-consuming processes into provider/inventory seeds.
 

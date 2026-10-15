@@ -7,6 +7,7 @@
   "properties": {
     "schemaVersion": { "const": 1 }, "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$", "maxLength": 128 }, "command": { "type": "string", "minLength": 1 },
     "startedAt": { "$ref": "#/definitions/timestamp" }, "finishedAt": { "$ref": "#/definitions/timestamp" }, "status": { "$ref": "#/definitions/status" },
+    "storageEvidence": { "type": "array", "maxItems": 100000, "items": { "$ref": "#/definitions/storageEvidenceReference" } },
     "harnessVersion": { "type": "string", "minLength": 1 },
     "platform": {
       "type": "object", "additionalProperties": false, "required": ["os", "arch", "node"],
@@ -39,6 +40,15 @@
     "error": { "type": "string" }
   },
   "definitions": {
+    "storageEvidenceReference": {
+      "type": "object", "additionalProperties": false, "required": ["schemaVersion", "id", "file", "sha256"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "id": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+        "file": { "type": "string", "pattern": "^storage-seals/[0-9a-f-]{36}\\.json$" },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
     "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$", "maxLength": 128 },
     "status": { "enum": ["passed", "failed", "unsupported", "skipped", "infrastructure-error"] },
     "timestamp": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$" },

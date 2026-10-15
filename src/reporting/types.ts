@@ -1,4 +1,5 @@
 import type { Artifact, CaseResult } from '../core/types.js';
+import type { StorageEvidenceReference } from './storage-evidence.js';
 
 export type CaseStatus = 'passed' | 'failed' | 'unsupported' | 'skipped' | 'infrastructure-error';
 export interface TestCase extends CaseResult {
@@ -31,6 +32,7 @@ export interface RunReport {
   command: string;
   startedAt: string;
   finishedAt?: string;
+  storageEvidence?: StorageEvidenceReference[];
   status: CaseStatus;
   harnessVersion: string;
   platform: { os: string; arch: string; node: string };

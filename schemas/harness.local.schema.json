@@ -4,6 +4,15 @@
   "type": "object", "additionalProperties": false, "required": ["schemaVersion"],
   "properties": {
     "schemaVersion": { "const": 1 },
+    "storage": {
+      "type": "object", "additionalProperties": false,
+      "allOf": [{ "if": { "required": ["cleanup"], "properties": { "cleanup": { "enum": ["after-run", "after-suite"] } } }, "then": { "required": ["managedCaches"], "properties": { "managedCaches": { "const": true } } } }],
+      "properties": {
+        "managedCaches": { "type": "boolean" },
+        "sharedAssets": { "type": "boolean" },
+        "cleanup": { "enum": ["retain", "after-run", "after-suite"] }
+      }
+    },
     "assetCache": { "type": "string", "minLength": 1 },
     "assetCaches": { "type": "object", "propertyNames": { "pattern": "^[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$" }, "additionalProperties": { "type": "string", "minLength": 1 } },
     "tools": { "type": "object", "propertyNames": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" }, "additionalProperties": { "type": "string", "minLength": 1 } },
