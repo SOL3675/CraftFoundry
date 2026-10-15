@@ -6,7 +6,7 @@ Use Node.js 24.19.0 and npm 11.9.0 when producing reproducible consumer packages
 npm ci --ignore-scripts
 npm run check
 npm pack
-npm run test:consumer -- --package craft-foundry-0.1.10.tgz
+npm run test:consumer -- --package craft-foundry-0.1.11.tgz
 ```
 
 `prepack` builds TypeScript. The package includes the CLI, eight explicit consumer API subpaths, schemas, Skills, templates, docs, fixtures, root LICENSE, and existing fixture/Gradle notices. Fixture binary and source JARs include their existing MIT license in `META-INF/LICENSE`. The package excludes caches, machine configuration, game downloads, credentials, and run evidence. Review `npm pack --dry-run --json` when changing the package allowlist. Verify a real packed consumer, not only this source checkout.
@@ -36,7 +36,7 @@ Foundry root install/build/pack must never install Atlas, recurse into submodule
 Create the tarball in a reviewed source checkout, copy it into an ignored local dependency directory in the consumer, and install it with an exact file dependency:
 
 ```console
-npm install --save-dev --save-exact ./craft-foundry-0.1.10.tgz --ignore-scripts
+npm install --save-dev --save-exact ./craft-foundry-0.1.11.tgz --ignore-scripts
 npx mch --help
 ```
 
@@ -46,7 +46,7 @@ Use [existing-project](../templates/existing-project/README.md) and [configurati
 
 Keep package version, schemas, and Skills together. Update consumer Skills with `mch skills install --destination .agents/skills --json`; inspect preserved edits before replacing any customization. Existing Mod source copies are not automatically upgraded.
 
-The 0.1.10 storage policy is opt-in and keeps configuration/report schema version 1. New reports containing `storageEvidence` require a 0.1.10-or-later reader; ordinary older reports remain readable. Upgrade the packed package and its Skills together, then run `mch storage --json` and `mch storage --clean --json` in the consumer before selecting a local storage policy. `after-suite` additionally requires lease/reservation lifecycle and report-linked scoped evidence; custom drivers must follow the [storage API order](storage.md#runtime-integration-api). Existing unmarked caches and historical Runs are retained. Validate the candidate in a disposable consumer with synthetic data; a passing contract test or a smaller logical inventory does not establish real-game correctness or physical disk savings. Apply cleanup to existing user data only after reviewing its exact preview and obtaining the relevant authorization.
+Storage policies are opt-in and keep configuration/report schema version 1. New reports containing `storageEvidence` require a 0.1.10-or-later reader; ordinary older reports remain readable. Upgrade the packed package and its Skills together, then run `mch storage --json` and `mch storage --clean --json` in the consumer before selecting a local storage policy. `after-suite` additionally requires lease/reservation lifecycle and report-linked scoped evidence; custom drivers must follow the [storage API order](storage.md#runtime-integration-api). Windows short project-root spellings normalize to the same canonical project for cache/evidence containment checks; managed-path link and junction exclusions remain in force. Existing unmarked caches and historical Runs are retained. Validate the candidate in a disposable consumer with synthetic data; a passing contract test or a smaller logical inventory does not establish real-game correctness or physical disk savings. Apply cleanup to existing user data only after reviewing its exact preview and obtaining the relevant authorization.
 
 Before merging, review diff and package contents and use meaningful commit messages for rationale. An initial squash merge does not erase prior dev commits, PR history, or copies of that history. Push, merge, visibility changes, and npm publication are separate operations.
 

@@ -224,7 +224,10 @@ export async function releaseStorageLease(projectRoot: string, handle: StorageLe
     const lease = unit.reservation?.leases.find(item => item.id === handle.id);
     if (!lease || lease.ownerHash !== digest(handle.ownerToken) || lease.ownerPid !== process.pid || lease.ownerInstance !== ownerInstance) throw new Error('Storage lease ownership does not authorize release');
     if (unit.reservation?.closed || unit.state !== 'active') throw new Error('Storage reservation is not open');
-    const evidenceRoot = await validateLeaseProof(root, proof.evidenceRoot, proof.seal, false);
+    // Preserve the caller's trusted spelling (including Windows 8.3 aliases)
+    // while normalizing the proof before canonical-root validation.
+    const proofRoot = await localPath(projectRoot, proof.evidenceRoot);
+    const evidenceRoot = await validateLeaseProof(root, proofRoot, proof.seal, false);
     if (lease.state === 'released') {
       if (lease.evidenceRoot !== evidenceRoot || !lease.seal || !sameReference(lease.seal, proof.seal)) throw new Error('Storage lease was released with different evidence');
       return;

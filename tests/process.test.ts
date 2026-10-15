@@ -55,6 +55,29 @@ function isAlive(pid: number): boolean {
   try { process.kill(pid, 0); return true; } catch { return false; }
 }
 
+async function waitForExit(pid: number): Promise<void> {
+  // POSIX pipe closure can precede the kernel reaping a SIGKILLed descendant.
+  // Require the PID to disappear; a stopped or zombie process is not a pass.
+  const end = Date.now() + 2_000;
+  while (isAlive(pid) && Date.now() < end) await new Promise(resolve => setTimeout(resolve, 20));
+}
+
+async function cleanupDescendant(controller: AbortController, pending: ReturnType<typeof runProcess>, pidFile: string): Promise<void> {
+  controller.abort();
+  await pending;
+  let content: string;
+  try { content = await readFile(pidFile, 'utf8'); }
+  catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return; throw error; }
+  const pid = Number(content);
+  assert.ok(Number.isSafeInteger(pid) && pid > 0, 'fixture must record its own spawned descendant PID');
+  if (isAlive(pid)) {
+    try { process.kill(pid, 'SIGKILL'); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error; }
+    await waitForExit(pid);
+  }
+  assert.equal(isAlive(pid), false, 'test-owned descendant remained after fixture cleanup');
+}
+
 test('cancel stops an owned descendant even when parent exits on graceful input', async t => {
   const dir = await workingDir(t); const pidFile = join(dir, 'child.pid');
   const childScript = join(dir, 'child.mjs');
@@ -63,9 +86,12 @@ test('cancel stops an owned descendant even when parent exits on graceful input'
   await writeFile(parentScript, 'import {spawn} from "node:child_process";import {writeFileSync} from "node:fs";const c=spawn(process.execPath,[process.argv[2]],{stdio:"inherit"});writeFileSync(process.argv[3],String(c.pid));process.stdin.on("data",()=>process.exit(0));setInterval(()=>{},1000);');
   const controller = new AbortController();
   const pending = runProcess({ executable: process.execPath, args: [parentScript, childScript, pidFile], cwd: dir, timeoutMs: 20_000, stopTimeoutMs: 500, gracefulInput: 'stop\n', signal: controller.signal, logDir: join(dir, 'logs') });
-  const pid = Number(await waitForFile(pidFile)); assert.equal(isAlive(pid), true);
-  controller.abort(); const result = await pending;
-  assert.equal(result.status, 'cancelled'); assert.equal(isAlive(pid), false, 'owned descendant survived graceful parent exit');
+  try {
+    const pid = Number(await waitForFile(pidFile)); assert.equal(isAlive(pid), true);
+    controller.abort(); const result = await pending;
+    await waitForExit(pid);
+    assert.equal(result.status, 'cancelled'); assert.equal(isAlive(pid), false, 'owned descendant survived graceful parent exit');
+  } finally { await cleanupDescendant(controller, pending, pidFile); }
 });
 
 test('forced shutdown is bounded for a parent and descendant that hang', async t => {
@@ -74,18 +100,26 @@ test('forced shutdown is bounded for a parent and descendant that hang', async t
   await writeFile(parentScript, 'import {spawn} from "node:child_process";import {writeFileSync} from "node:fs";const c=spawn(process.execPath,["-e","process.on(\\"SIGTERM\\",()=>{});setInterval(()=>{},1000)"],{stdio:"inherit"});writeFileSync(process.argv[2],String(c.pid));process.on("SIGTERM",()=>{});setInterval(()=>{},1000);');
   const controller = new AbortController();
   const pending = runProcess({ executable: process.execPath, args: [parentScript, pidFile], cwd: dir, timeoutMs: 20_000, stopTimeoutMs: 100, signal: controller.signal, logDir: join(dir, 'logs') });
-  const pid = Number(await waitForFile(pidFile));
-  const start = Date.now(); controller.abort(); const result = await pending;
-  assert.equal(result.status, 'cancelled'); assert.ok(Date.now() - start < 6_000); assert.equal(isAlive(pid), false);
+  try {
+    const pid = Number(await waitForFile(pidFile));
+    const start = Date.now(); controller.abort(); const result = await pending;
+    await waitForExit(pid);
+    assert.equal(result.status, 'cancelled'); assert.ok(Date.now() - start < 6_000); assert.equal(isAlive(pid), false);
+  } finally { await cleanupDescendant(controller, pending, pidFile); }
 });
 
 test('a completed parent leaves no owned descendants', async t => {
   const dir = await workingDir(t); const pidFile = join(dir, 'child.pid');
   const script = join(dir, 'exit.mjs');
   await writeFile(script, 'import {spawn} from "node:child_process";import {writeFileSync} from "node:fs";const c=spawn(process.execPath,["-e","setInterval(()=>{},1000)"],{stdio:"inherit"});writeFileSync(process.argv[2],String(c.pid));process.exit(0);');
-  const result = await runProcess({ executable: process.execPath, args: [script, pidFile], cwd: dir, timeoutMs: 10_000, logDir: join(dir, 'logs') });
-  const pid = Number(await readFile(pidFile, 'utf8'));
-  assert.equal(result.status, 'passed'); assert.equal(isAlive(pid), false);
+  const controller = new AbortController();
+  const pending = runProcess({ executable: process.execPath, args: [script, pidFile], cwd: dir, timeoutMs: 10_000, signal: controller.signal, logDir: join(dir, 'logs') });
+  try {
+    const result = await pending;
+    const pid = Number(await readFile(pidFile, 'utf8'));
+    await waitForExit(pid);
+    assert.equal(result.status, 'passed'); assert.equal(isAlive(pid), false);
+  } finally { await cleanupDescendant(controller, pending, pidFile); }
 });
 
 test('redaction applies to returned output and persisted logs', async t => {

@@ -1,6 +1,6 @@
 # Storage management
 
-Use `mch storage` to inspect a project's `.harness` data before changing its storage policy. Storage settings live in ignored `harness.local.json`; they do not belong in shared configuration or a package. All defaults preserve existing behavior. Foundry 0.1.10 does not adopt or delete historical unmarked caches.
+Use `mch storage` to inspect a project's `.harness` data before changing its storage policy. Storage settings live in ignored `harness.local.json`; they do not belong in shared configuration or a package. All defaults preserve existing behavior. Foundry 0.1.11 does not adopt or delete historical unmarked caches.
 
 ```console
 mch storage --project <directory> --json
@@ -111,6 +111,6 @@ The common `.harness/storage/cleanup.lock` coordinates lifecycle mutations and c
 
 ## Upgrade and recovery
 
-Install the exact reviewed `craft-foundry-0.1.10.tgz`, keeping its integrity in the consumer lockfile, then update bundled Skills with `mch skills install --destination .agents/skills --json`. Review the installer's `preserved` customizations. Configuration and reports remain schema version 1; reports containing `storageEvidence` require a 0.1.10-or-later reader. Reports without that optional field and the existing `after-run` policy remain compatible. Start with inventory and a dry-run, and opt in through local configuration for subsequent Runs. Custom drivers using mid-Run cleanup must implement reservations, leases and report-linked scoped seals before selecting `after-suite`. A candidate package does not authorize clearing historical user data.
+Install the exact reviewed `craft-foundry-0.1.11.tgz`, keeping its integrity in the consumer lockfile, then update bundled Skills with `mch skills install --destination .agents/skills --json`. Review the installer's `preserved` customizations. Configuration and reports remain schema version 1; reports containing `storageEvidence` require a 0.1.10-or-later reader. Reports without that optional field and the existing `after-run` policy remain compatible. Start with inventory and a dry-run, and opt in through local configuration for subsequent Runs. Custom drivers using mid-Run cleanup must implement reservations, leases and report-linked scoped seals before selecting `after-suite`. A candidate package does not authorize clearing historical user data.
 
 Reclaimed dependencies are restored by normal preparation from valid local sources or pinned downloads. They are not backed up by cleanup. Retained Run evidence is still needed to inspect failures and reproduce the recorded inputs; a replay command cannot restore missing dirty sources, missing external prerequisites or unavailable downloads. Test packed consumers using disposable data before applying a policy to real workloads; see [distribution](distribution.md) and [support limits](support.md).

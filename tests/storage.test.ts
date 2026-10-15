@@ -376,3 +376,37 @@ test('scoped reservation cleanup safely retries a partially unlinked dependency 
   await closeStorageReservation(data.root, data.reservation);
   await assert.rejects(lstat(data.cache), { code: 'ENOENT' });
 });
+
+test('lease release accepts a trusted Windows 8.3 project spelling and preserves path boundaries', { skip: process.platform !== 'win32' }, async t => {
+  const data = await reserved(t);
+  const script = `Add-Type -TypeDefinition @'
+using System;
+using System.Text;
+using System.Runtime.InteropServices;
+public static class FoundryShortPath {
+  [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+  public static extern uint GetShortPathName(string longPath, StringBuilder shortPath, uint capacity);
+}
+'@
+$buffer = New-Object System.Text.StringBuilder 32768
+$length = [FoundryShortPath]::GetShortPathName($env:MCH_SHORT_PATH_INPUT, $buffer, 32768)
+if ($length -eq 0 -or $length -ge 32768) { exit 1 }
+[Console]::Out.Write($buffer.ToString())`;
+  let alias: string;
+  try {
+    const result = await promisify(execFile)(path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'), ['-NoProfile', '-NonInteractive', '-Command', script],
+      { windowsHide: true, env: { ...process.env, MCH_SHORT_PATH_INPUT: data.root } });
+    alias = result.stdout.trim();
+  } catch { t.skip('Windows short-path lookup is unavailable'); return; }
+  if (!alias || alias.toLowerCase() === data.root.toLowerCase()) { t.skip('The fixture volume does not expose an 8.3 path alias'); return; }
+  assert.equal(await realpath(alias), data.root);
+  const lease = await acquireStorageLease(alias, data.reservation); const evidence = await phaseEvidence(data, 'short-path');
+  const aliasRun = path.join(alias, '.harness', 'runs', path.basename(data.run));
+  await releaseStorageLease(alias, lease, { stopped: true, evidenceRoot: aliasRun, seal: evidence.seal });
+  await assert.rejects(releaseStorageLease(alias, lease, { stopped: true, evidenceRoot: path.dirname(data.root), seal: evidence.seal }), /escapes/);
+  const linkedRun = path.join(alias, '.harness', 'runs', 'linked-short-path');
+  await symlink(data.run, linkedRun, 'junction');
+  await assert.rejects(releaseStorageLease(alias, lease, { stopped: true, evidenceRoot: linkedRun, seal: evidence.seal }), /contains a link/);
+  await closeStorageReservation(alias, data.reservation);
+  assert.equal((await cleanupStorage(alias, { unitIds: [data.reservation.id] })).reclaimableBytes, 4096);
+});
