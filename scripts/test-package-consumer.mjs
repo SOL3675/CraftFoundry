@@ -96,7 +96,7 @@ writeFileSync('results.json', JSON.stringify({schemaVersion:1,cases:[{id:'surviv
   }));
   // The installed CLI must preserve historical caches and evidence even when a
   // consumer opts future managed sessions into automatic dependency cleanup.
-  writeFileSync(join(directory, 'harness.local.json'), JSON.stringify({ schemaVersion: 1, storage: { managedCaches: true, sharedAssets: true, cleanup: 'after-run' } }));
+  writeFileSync(join(directory, 'harness.local.json'), JSON.stringify({ schemaVersion: 1, storage: { managedCaches: true, sharedAssets: true, cleanup: 'after-suite' } }));
   const historicalCache = join(directory, '.harness/c/historical/mct-cache/client/libraries/old.jar');
   mkdirSync(join(historicalCache, '..'), { recursive: true }); writeFileSync(historicalCache, 'Unowned historical cache');
   const storageInventory = cli('storage'), storagePreview = cli('storage', '--clean');
@@ -120,13 +120,26 @@ writeFileSync('results.json', JSON.stringify({schemaVersion:1,cases:[{id:'surviv
   const bytes = readFileSync(join(runRoot, detailFile));
   assert.ok(bytes.length > 2000000);
   const managed = JSON.parse(execFileSync(process.execPath, ['--input-type=module', '-e', `
-import {randomUUID} from 'node:crypto'; import {mkdir,writeFile} from 'node:fs/promises'; import {join} from 'node:path';
-import {createStorageUnit,finalizeStorageUnit} from 'craft-foundry/core/storage';
+import assert from 'node:assert/strict'; import {randomUUID} from 'node:crypto'; import {mkdir,readFile,writeFile} from 'node:fs/promises'; import {join} from 'node:path';
+import {createStorageReservation,acquireStorageLease,createStorageEvidenceSeal,attachStorageEvidence,releaseStorageLease,closeStorageReservation,cleanupStorage} from 'craft-foundry/core/storage';
 const root=process.cwd(),cache=join(root,'.harness/c',randomUUID(),'mct-cache/client');
-const handle=await createStorageUnit(root,cache); await mkdir(join(cache,'libraries'),{recursive:true});
+const runRoot=process.argv[1],report=JSON.parse(await readFile(join(runRoot,'report.json'),'utf8'));
+delete report.finishedAt; report.status='infrastructure-error'; await writeFile(join(runRoot,'report.json'),JSON.stringify(report));
+const handle=await createStorageReservation(root,cache),first=await acquireStorageLease(root,handle); await mkdir(join(cache,'libraries'),{recursive:true});
 await writeFile(join(cache,'libraries/dependency.jar'),Buffer.alloc(4096,7));
-await finalizeStorageUnit(root,handle,{stopped:true,evidenceRoot:process.argv[1]});
-console.log(JSON.stringify({id:handle.id,cache}));`, runRoot], { cwd: directory, encoding: 'utf8' }));
+const suite=report.targets[0].suites[0],files=[...suite.logs,...suite.evidence];
+const seal=await createStorageEvidenceSeal(root,runRoot,{scope:{target:'fabric',suite:'survival',phase:'first'},files});
+await attachStorageEvidence(root,runRoot,[seal]);
+await releaseStorageLease(root,first,{stopped:true,evidenceRoot:runRoot,seal});
+assert.equal((await cleanupStorage(root,{apply:true,unitIds:[handle.id]})).deletedBytes,0);
+const second=await acquireStorageLease(root,handle); await assert.rejects(closeStorageReservation(root,handle));
+const next=await createStorageEvidenceSeal(root,runRoot,{scope:{target:'fabric',suite:'survival',phase:'second'},files});
+await attachStorageEvidence(root,runRoot,[next]);
+await releaseStorageLease(root,second,{stopped:true,evidenceRoot:runRoot,seal:next});
+await closeStorageReservation(root,handle);
+Object.assign(report,JSON.parse(await readFile(join(runRoot,'report.json'),'utf8')));
+console.log(JSON.stringify({id:handle.id,cache,report}));`, runRoot], { cwd: directory, encoding: 'utf8' }));
+  delete run.finishedAt; Object.assign(run, managed.report);
   const managedPreview = cli('storage', '--clean', '--unit', managed.id);
   assert.equal(managedPreview.reclaimableBytes, 4096); assert.equal(managedPreview.deletedBytes, 0);
   assert.ok(existsSync(join(managed.cache, 'libraries/dependency.jar')));
@@ -138,6 +151,9 @@ console.log(JSON.stringify({id:handle.id,cache}));`, runRoot], { cwd: directory,
   const repeatedCleanup = cli('storage', '--clean', '--unit', managed.id, '--apply');
   assert.equal(repeatedCleanup.deletedBytes, 0); assert.deepEqual(repeatedCleanup.errors, []);
   assert.equal(readFileSync(historicalCache, 'utf8'), 'Unowned historical cache');
+  assert.equal(cli('report', '--run', run.id).finishedAt, undefined, 'eligible unit is reclaimed before the Run completes');
+  run.finishedAt = new Date().toISOString(); run.status = 'failed';
+  writeFileSync(join(runRoot, 'report.json'), JSON.stringify(run));
   assert.deepEqual(cli('report', '--run', run.id), run);
   assert.deepEqual(readFileSync(join(runRoot, detailFile)), bytes);
   // Install the unmodified CI template in its documented .github/scripts layout.
@@ -171,5 +187,5 @@ console.log(JSON.stringify({id:handle.id,cache}));`, runRoot], { cwd: directory,
   assert.equal(missingRun.status, 2, missingRun.stderr);
   assert.equal(JSON.parse(missingRun.stdout).targets[0].suites[0].status, 'infrastructure-error');
   assert.equal(JSON.parse(missingRun.stdout).targets[0].suites[0].detected, 0);
-  console.log(JSON.stringify({ version, packageSha256: createHash('sha256').update(readFileSync(options['--package'])).digest('hex'), previousVersion: previous?.version ?? null, skills: updated, targets: 4, exports: 8, template: 'exact-target and finite boundaries verified', diagnostics: 'installed process/report/JUnit/CI detail preservation verified', storage: 'installed inventory, read-only preview, explicit apply and retained historical cache/evidence verified' }));
+  console.log(JSON.stringify({ version, packageSha256: createHash('sha256').update(readFileSync(options['--package'])).digest('hex'), previousVersion: previous?.version ?? null, skills: updated, targets: 4, exports: 8, template: 'exact-target and finite boundaries verified', diagnostics: 'installed process/report/JUnit/CI detail preservation verified', storage: 'installed reservations, lease gaps, immutable partial evidence and mid-Run selected cleanup verified' }));
 } finally { rmSync(directory, { recursive: true, force: true }); }

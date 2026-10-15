@@ -11,6 +11,8 @@ Run `mch doctor --json`, then `mch inspect --target <id> --json`. Treat missing 
 
 Read `docs/storage.md` before enabling local `storage.managedCaches`, `storage.sharedAssets` or `storage.cleanup`. Defaults keep existing behavior. Inventory with `mch storage --json` and preview with `mch storage --clean --json`; applying cleanup requires explicit `--apply` and authorization for those exact targets. Retain historical unmarked data, worlds, settings and evidence. Asset reuse is limited to verified immutable bytes with independent session files; logical sizes do not guarantee physical savings.
 
+Select `cleanup: "after-suite"` only with managed caches and runtime lifecycle support: reserve the cache across restarts, lease each process phase, stop positively, seal complete scoped evidence, attach it durably to the report, release every lease and close only after final use. Custom process drivers use `core/storage` APIs before exiting; follow the exact order in `docs/storage.md`. Reports with `storageEvidence` need a 0.1.10-or-later reader. Direct game-visible asset sharing remains deferred.
+
 
 During setup, inventory custom acquisition mechanisms (including mechanisms outside recipe serialization). For Mods adding custom acquisition on supported Fabric/NeoForge 1.21.1 or Forge/Fabric 1.20.1 targets, declare the repository-only Atlas survival process suite as required, and use `templates/acquisition/README.md` to declare per-Mod definitions, mechanisms and positive/missing-prerequisite regression cases. Preserve an explicit unsupported suite when current capture/definitions or access are unavailable. A valid config or provider seed alone is not acquisition coverage. Upgrade consumer Skills using the installer, preserving edited files.
 

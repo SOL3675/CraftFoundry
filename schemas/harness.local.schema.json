@@ -6,11 +6,11 @@
     "schemaVersion": { "const": 1 },
     "storage": {
       "type": "object", "additionalProperties": false,
-      "allOf": [{ "if": { "required": ["cleanup"], "properties": { "cleanup": { "const": "after-run" } } }, "then": { "required": ["managedCaches"], "properties": { "managedCaches": { "const": true } } } }],
+      "allOf": [{ "if": { "required": ["cleanup"], "properties": { "cleanup": { "enum": ["after-run", "after-suite"] } } }, "then": { "required": ["managedCaches"], "properties": { "managedCaches": { "const": true } } } }],
       "properties": {
         "managedCaches": { "type": "boolean" },
         "sharedAssets": { "type": "boolean" },
-        "cleanup": { "enum": ["retain", "after-run"] }
+        "cleanup": { "enum": ["retain", "after-run", "after-suite"] }
       }
     },
     "assetCache": { "type": "string", "minLength": 1 },

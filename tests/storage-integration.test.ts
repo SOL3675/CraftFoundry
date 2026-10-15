@@ -7,7 +7,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
-import { createStorageUnit, finalizeStorageUnit } from '../dist/core/storage.js';
+import { createStorageUnit, finalizeStorageUnit, createStorageReservation, acquireStorageLease, createStorageEvidenceSeal, attachStorageEvidence, releaseStorageLease, closeStorageReservation } from '../dist/core/storage.js';
+import { saveReport } from '../dist/reporting/report.js';
 
 const execute = promisify(execFile);
 const cli = fileURLToPath(new URL('../dist/cli/main.js', import.meta.url));
@@ -110,7 +111,7 @@ test('storage CLI rejects unsafe or ambiguous flag combinations as structured er
 
 test('local storage policy rejects unknown fields, values and non-boolean opt-ins', async (t) => {
   const f = await fixture(t);
-  for (const storage of [null, true, { managedCaches: 'true' }, { sharedAssets: 1 }, { cleanup: true }, { cleanup: 'always' }, { cleanup: 'after-run' }, { managedCaches: false, cleanup: 'after-run' }, { removeWorlds: true }]) {
+  for (const storage of [null, true, { managedCaches: 'true' }, { sharedAssets: 1 }, { cleanup: true }, { cleanup: 'always' }, { cleanup: 'after-run' }, { managedCaches: false, cleanup: 'after-run' }, { cleanup: 'after-suite' }, { managedCaches: false, cleanup: 'after-suite' }, { removeWorlds: true }]) {
     await f.local(storage);
     const result = await f.invoke('targets');
     assert.equal(result.code, 2, JSON.stringify(storage));
@@ -121,7 +122,7 @@ test('local storage policy rejects unknown fields, values and non-boolean opt-in
 
 test('opt-in storage policies preserve process-suite reports, results and logs', async (t) => {
   const f = await fixture(t);
-  for (const storage of [{}, { managedCaches: true, sharedAssets: true, cleanup: 'retain' }, { managedCaches: true, sharedAssets: true, cleanup: 'after-run' }]) {
+  for (const storage of [{}, { managedCaches: true, sharedAssets: true, cleanup: 'retain' }, { managedCaches: true, sharedAssets: true, cleanup: 'after-run' }, { managedCaches: true, cleanup: 'after-suite' }]) {
     await f.local(storage);
     const tested = await f.invoke('test', '--target', 'fabric');
     assert.equal(tested.code, 0, tested.stdout);
@@ -138,6 +139,62 @@ test('opt-in storage policies preserve process-suite reports, results and logs',
     assert.equal(preview.output.deletedBytes, 0);
     assert.equal(preview.output.reclaimableBytes, 0, 'ordinary process sessions cannot be adopted as disposable client caches');
   }
+});
+
+test('mid-Run cleanup requires released leases, a closed reservation and durable partial evidence references', async (t) => {
+  const f = await fixture(t);
+  const tested = await f.invoke('test', '--target', 'fabric');
+  assert.equal(tested.code, 0, tested.stdout);
+  const report = structuredClone(tested.output), runRoot = path.join(f.root, '.harness/runs', report.id);
+  delete report.finishedAt; report.status = 'infrastructure-error';
+  await saveReport(runRoot, report);
+  const cache = path.join(f.root, '.harness/c', randomUUID(), 'mct-cache/client');
+  const reservation = await createStorageReservation(f.root, cache);
+  const first = await acquireStorageLease(f.root, reservation);
+  await mkdir(path.join(cache, 'libraries'), { recursive: true });
+  const dependency = Buffer.alloc(8192, 3);
+  await writeFile(path.join(cache, 'libraries/fixture.jar'), dependency);
+  const suite = report.targets[0].suites[0];
+  const files = ['sessions/fabric/offline/results.json', ...suite.logs];
+  const seal = await createStorageEvidenceSeal(f.root, runRoot, { scope: { target: 'fabric', suite: 'offline', phase: 'first' }, files });
+  await assert.rejects(releaseStorageLease(f.root, first, { stopped: false, evidenceRoot: runRoot, seal }));
+  await assert.rejects(closeStorageReservation(f.root, reservation), 'a live lease prevents reservation closure');
+  await attachStorageEvidence(f.root, runRoot, [seal]);
+  await releaseStorageLease(f.root, first, { stopped: true, evidenceRoot: runRoot, seal });
+  // The parent can checkpoint an older in-memory report without dropping the attached seal.
+  await saveReport(runRoot, report);
+  report.storageEvidence = [seal];
+  const gap = await f.invoke('storage', '--clean', '--unit', reservation.id, '--apply');
+  assert.equal(gap.code, 0, gap.stdout); assert.equal(gap.output.deletedBytes, 0);
+  assert.deepEqual(await readFile(path.join(cache, 'libraries/fixture.jar')), dependency);
+  const second = await acquireStorageLease(f.root, reservation);
+  await assert.rejects(closeStorageReservation(f.root, reservation));
+  const secondSeal = await createStorageEvidenceSeal(f.root, runRoot, { scope: { target: 'fabric', suite: 'offline', phase: 'second' }, files });
+  await attachStorageEvidence(f.root, runRoot, [secondSeal]);
+  await releaseStorageLease(f.root, second, { stopped: true, evidenceRoot: runRoot, seal: secondSeal });
+  report.storageEvidence.push(secondSeal); await saveReport(runRoot, report);
+  await closeStorageReservation(f.root, reservation);
+  // A different suite may continue writing while this completed scope is reclaimed.
+  await mkdir(path.join(runRoot, 'sessions/fabric/later'), { recursive: true });
+  await writeFile(path.join(runRoot, 'sessions/fabric/later/working.log'), 'another suite is still active');
+  const preview = await f.invoke('storage', '--clean', '--unit', reservation.id);
+  assert.equal(preview.code, 0, preview.stdout); assert.equal(preview.output.reclaimableBytes, dependency.length);
+  const applied = await f.invoke('storage', '--clean', '--unit', reservation.id, '--apply');
+  assert.equal(applied.code, 0, applied.stdout); assert.equal(applied.output.deletedBytes, dependency.length);
+  assert.deepEqual(applied.output.errors, []);
+  const unfinished = await f.invoke('report', '--run', report.id);
+  assert.equal(unfinished.code, 0, unfinished.stdout); assert.equal(unfinished.output.finishedAt, undefined);
+  assert.deepEqual(unfinished.output.storageEvidence, report.storageEvidence);
+  for (const relative of files) await readFile(path.join(runRoot, relative));
+  assert.equal(await readFile(path.join(runRoot, 'sessions/fabric/later/working.log'), 'utf8'), 'another suite is still active');
+  report.finishedAt = new Date().toISOString(); report.status = tested.output.status; await saveReport(runRoot, report);
+  assert.deepEqual((await f.invoke('report', '--run', report.id)).output, report);
+  assert.equal((await f.invoke('storage', '--clean', '--unit', reservation.id, '--apply')).output.deletedBytes, 0);
+  const sealFile = path.join(runRoot, seal.file), originalSeal = await readFile(sealFile);
+  await writeFile(sealFile, '{"tampered":true}');
+  assert.equal((await f.invoke('report', '--run', report.id)).code, 2, 'inspection must verify retained scope seals after cleanup');
+  await writeFile(sealFile, originalSeal);
+  assert.deepEqual((await f.invoke('report', '--run', report.id)).output, report);
 });
 
 test('storage CLI reclaims only a selected finalized dependency unit and preserves its Run', async (t) => {
@@ -172,4 +229,57 @@ test('storage CLI reclaims only a selected finalized dependency unit and preserv
   assert.equal(repeated.code, 0, repeated.stdout);
   assert.equal(repeated.output.deletedBytes, 0);
   assert.deepEqual(repeated.output.errors, []);
+});
+
+test('a process driver reclaims its completed phase before exit and the parent preserves its attached evidence', async (t) => {
+  const f = await fixture(t);
+  await f.local({ managedCaches: true, cleanup: 'after-suite' });
+  const storageModule = new URL('../dist/core/storage.js', import.meta.url).href;
+  await writeFile(path.join(f.root, 'produce.mjs'), `
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {mkdir,readFile,writeFile} from 'node:fs/promises';
+import {join,relative} from 'node:path';
+import {createStorageReservation,acquireStorageLease,createStorageEvidenceSeal,attachStorageEvidence,releaseStorageLease,closeStorageReservation,cleanupStorage} from ${JSON.stringify(storageModule)};
+const root=process.env.MCH_PROJECT_ROOT,runRoot=process.env.MCH_RUN_ROOT,session=process.env.MCH_SESSION_ROOT;
+assert.ok(root && runRoot && session,'the process driver must provide the current Run root');
+const initial=JSON.parse(await readFile(join(runRoot,'report.json'),'utf8'));
+assert.equal(initial.finishedAt,undefined);
+const cache=join(root,'.harness/c',randomUUID(),'mct-cache/client'),reservation=await createStorageReservation(root,cache);
+const lease=await acquireStorageLease(root,reservation);
+await mkdir(join(cache,'libraries'),{recursive:true}); await writeFile(join(cache,'libraries/dependency.jar'),Buffer.alloc(8192,5));
+await mkdir(join(session,'world'),{recursive:true}); await writeFile(join(session,'world/level.dat'),'retained phase world');
+const phase={unitId:reservation.id,observedRunFinished:false,dependencyBytes:8192};
+await writeFile(join(session,'phase.json'),JSON.stringify(phase));
+const runRelative=file=>relative(runRoot,join(session,file)).replaceAll('\\\\','/');
+const seal=await createStorageEvidenceSeal(root,runRoot,{scope:{target:process.env.MCH_TARGET,suite:'offline',phase:'completed'},files:[runRelative('phase.json'),runRelative('world/level.dat')]});
+await attachStorageEvidence(root,runRoot,[seal]);
+await releaseStorageLease(root,lease,{stopped:true,evidenceRoot:runRoot,seal});
+await closeStorageReservation(root,reservation);
+const cleanup=await cleanupStorage(root,{apply:true,unitIds:[reservation.id]});
+assert.equal(cleanup.deletedBytes,8192); assert.deepEqual(cleanup.errors,[]);
+assert.equal(JSON.parse(await readFile(join(runRoot,'report.json'),'utf8')).finishedAt,undefined);
+assert.equal(await readFile(join(session,'world/level.dat'),'utf8'),'retained phase world');
+await writeFile(join(session,'results.json.evidence.json'),JSON.stringify({cleanup,cache,observedRunFinished:false}));
+await writeFile(join(session,'results.json'),JSON.stringify({schemaVersion:1,cases:[{id:'fixture.storage',status:'passed',detail:{file:'results.json.evidence.json',pointer:'/cleanup'}}]}));
+console.log('phase reclaimed while parent Run remains unfinished');
+`);
+  const tested = await f.invoke('test', '--target', 'fabric');
+  assert.equal(tested.code, 0, tested.stdout);
+  assert.equal(tested.output.status, 'passed'); assert.ok(tested.output.finishedAt);
+  assert.equal(tested.output.storageEvidence.length, 1, 'the parent checkpoint must preserve a child-attached reference');
+  const runRoot = path.join(f.root, '.harness/runs', tested.output.id);
+  const suite = tested.output.targets[0].suites[0], detail = suite.cases[0].detail.file;
+  const proof = JSON.parse(await readFile(path.join(runRoot, detail), 'utf8'));
+  assert.equal(proof.observedRunFinished, false); assert.equal(proof.cleanup.deletedBytes, 8192);
+  assert.deepEqual(proof.cleanup.errors, []);
+  assert.equal(JSON.parse(await readFile(path.join(f.root, proof.cleanup.auditPath), 'utf8')).complete, true);
+  await assert.rejects(readFile(path.join(proof.cache, 'libraries/dependency.jar')), /ENOENT/);
+  assert.equal(await readFile(path.join(runRoot, 'sessions/fabric/offline/world/level.dat'), 'utf8'), 'retained phase world');
+  const seal = tested.output.storageEvidence[0], manifest = JSON.parse(await readFile(path.join(runRoot, seal.file), 'utf8'));
+  assert.deepEqual(manifest.scope, { target: 'fabric', suite: 'offline', phase: 'completed' });
+  assert.equal(manifest.files.length, 2);
+  assert.equal(JSON.parse(await readFile(path.join(runRoot, 'sessions/fabric/offline/phase.json'), 'utf8')).observedRunFinished, false);
+  assert.ok(suite.evidence.includes(detail));
+  assert.deepEqual((await f.invoke('report', '--run', tested.output.id)).output, tested.output);
 });

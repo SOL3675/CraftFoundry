@@ -10,7 +10,7 @@ import { collectCrashReports } from '../../reporting/evidence.js';
 import { OwnedServer } from '../runtime/server.js';
 import { McPilotRuntimeAdapter } from '../runtime/mc-pilot.js';
 import { assertContainedPath } from '../../core/paths.js';
-import { createStorageUnit, type StorageUnitHandle } from '../../core/storage.js';
+import { createStorageUnit, createStorageReservation, acquireStorageLease, type StorageUnitHandle, type StorageLeaseHandle } from '../../core/storage.js';
 
 export const FIXTURE_MULTIPLAYER_CASE_IDS = ['multiplayer.connected', 'multiplayer.placed', 'multiplayer.gui', 'multiplayer.sync', 'multiplayer.reconnected', 'multiplayer.stopped'] as const;
 export const FIXTURE_MULTI_CLIENT_CASE_IDS = ['multi-client.connected', 'multi-client.placed', 'multi-client.gui', 'multi-client.sync', 'multi-client.peer-sync', 'multi-client.reconnected', 'multi-client.stopped'] as const;
@@ -33,6 +33,7 @@ export interface PilotTestOptions {
   /** Optional immutable assets/objects seed; all copied objects are hash checked. */
   assetCache?: string;
   onStorageUnitStopped?: (unit: StorageUnitHandle) => void;
+  onStorageLeaseStopped?: (reservation: StorageUnitHandle, lease: StorageLeaseHandle, cacheDir: string) => void;
 }
 export interface PilotTestResult { cases: TestCase[]; logs: string[]; evidence: string[]; metadata: Record<string, unknown> }
 
@@ -112,8 +113,8 @@ async function runPilotTest(loaded: LoadedConfig, targetId: string, runtime: Run
   const server = new OwnedServer(loaded, targetId, runtime, join(sessionRoot, 'server'), join(sessionRoot, 'server-process'));
   let client: McPilotRuntimeAdapter | undefined;
   let peer: McPilotRuntimeAdapter | undefined;
-  const storageUnits = new Map<McPilotRuntimeAdapter, StorageUnitHandle>();
-  const stoppedStorageUnits: StorageUnitHandle[] = [];
+  const storageUnits = new Map<McPilotRuntimeAdapter, { unit: StorageUnitHandle; lease?: StorageLeaseHandle; cacheDir: string }>();
+  const stoppedStorageUnits: Array<{ unit: StorageUnitHandle; lease?: StorageLeaseHandle; cacheDir: string }> = [];
   let lifecycleComplete = false;
   const conditionTimeout = Math.min(loaded.local.timeouts?.test ?? 30_000, 30_000);
   const username = smoke ? 'MchSmoke' : 'MchTest';
@@ -126,9 +127,11 @@ async function runPilotTest(loaded: LoadedConfig, targetId: string, runtime: Run
         await assertContainedPath(loaded.root, cacheDir);
         await mkdir(dirname(cacheDir), { recursive: true });
       }
-      const unit = cacheDir ? await createStorageUnit(loaded.root, join(cacheDir, 'client')) : undefined;
+      const phased = loaded.local.storage?.cleanup === 'after-suite';
+      const unit = cacheDir ? await (phased ? createStorageReservation : createStorageUnit)(loaded.root, join(cacheDir, 'client')) : undefined;
+      const lease = unit && phased ? await acquireStorageLease(loaded.root, unit) : undefined;
       const selected = new McPilotRuntimeAdapter({ backendRoot: options.backendRoot, runDir: join(sessionRoot, directory), cacheDir, sharedAssets: loaded.local.storage?.sharedAssets ? join(loaded.root, '.harness', 'cache', 'shared-assets') : undefined, clientName: name, minecraft: target!.minecraft, loader: target!.loader as 'fabric' | 'forge' | 'neoforge', loaderVersion: target.loaderVersion, downloadConcurrency: process.platform === 'linux' ? 2 : undefined, assetCache: options.assetCache, java: join(javaHome, 'bin', process.platform === 'win32' ? 'java.exe' : 'java'), wsPort: port, account, helperArtifact: options.helperArtifact, signal: options.signal, requestTimeoutMs: loaded.local.timeouts?.build ?? 600_000, sessionTimeoutMs: loaded.local.timeouts?.test ?? 600_000, stopTimeoutMs: loaded.local.timeouts?.stop ?? 30_000, redact: redactText });
-      if (unit) storageUnits.set(selected, unit);
+      if (unit) storageUnits.set(selected, { unit, lease, cacheDir: selected.cache });
       return selected;
     };
     client = await makeClient('client', smoke ? 'smoke-client' : 'fixture-client', username, wsPort);
@@ -259,7 +262,10 @@ async function runPilotTest(loaded: LoadedConfig, targetId: string, runtime: Run
   }
   // Publish shutdown attestations only after every retained log/evidence write
   // above has succeeded. An evidence error must leave the unit active.
-  if (lifecycleComplete) for (const unit of stoppedStorageUnits) options.onStorageUnitStopped?.(unit);
+  if (lifecycleComplete) for (const { unit, lease, cacheDir } of stoppedStorageUnits) {
+    if (lease) options.onStorageLeaseStopped?.(unit, lease, cacheDir);
+    else options.onStorageUnitStopped?.(unit);
+  }
   return { cases, logs: [...new Set(logs)], evidence: [...new Set(evidence)], metadata };
 }
 

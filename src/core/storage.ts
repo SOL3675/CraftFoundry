@@ -3,13 +3,24 @@ import { constants } from 'node:fs';
 import { lstat, mkdir, open, readFile, readdir, readlink, realpath, rename, rmdir, statfs, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { readReport } from '../reporting/report.js';
+import { validateStorageEvidenceSeal, type StorageEvidenceReference } from '../reporting/storage-evidence.js';
+export { createStorageEvidenceSeal, validateStorageEvidenceSeal } from '../reporting/storage-evidence.js';
+export type { StorageEvidenceFile, StorageEvidenceManifest, StorageEvidenceReference, StorageEvidenceScope } from '../reporting/storage-evidence.js';
+export { attachStorageEvidence } from '../reporting/report.js';
+export { retainClientDependencyMetadata } from '../reporting/dependency-metadata.js';
 
 export interface StorageUnitHandle { id: string; ownerToken: string }
+export interface StorageLeaseHandle { unitId: string; id: string; ownerToken: string }
 interface FileIdentity { path: string; kind: 'file' | 'directory' | 'link'; bytes: number; modifiedMs?: number; sha256?: string; link?: string }
+interface StorageLease {
+  id: string; ownerHash: string; ownerPid: number; ownerInstance: string; createdAt: string;
+  state: 'active' | 'released'; releasedAt?: string; evidenceRoot?: string; seal?: StorageEvidenceReference;
+}
 interface StorageUnit {
   schemaVersion: 1; id: string; ownerHash: string; ownerPid: number; ownerInstance: string; createdAt: string;
   cacheRoot: string; state: 'active' | 'sealed' | 'reclaimed';
   evidenceRoot?: string; sealedAt?: string; evidence?: FileIdentity[]; cache?: FileIdentity[];
+  reservation?: { closed: boolean; leases: StorageLease[] };
 }
 export interface StorageEntry {
   path: string; kind: FileIdentity['kind']; logicalBytes: number;
@@ -103,15 +114,43 @@ async function atomicJson(root: string, file: string, data: unknown): Promise<vo
   finally { await handle.close(); }
   await rename(temporary, await localPath(root, file));
 }
+/** No PID-based recovery: interruption leaves the durable lock for explicit inspection. */
+async function withStorageLock<T>(projectRoot: string, action: (root: string) => Promise<T>): Promise<T> {
+  const root = await realpath(projectRoot);
+  const lockFile = await localPath(root, path.join(root, '.harness', 'storage', 'cleanup.lock'));
+  await mkdir(path.dirname(lockFile), { recursive: true });
+  const lock = await open(lockFile, 'wx').catch((error: NodeJS.ErrnoException) => {
+    if (error.code === 'EEXIST') throw new Error('Storage mutation/cleanup is locked; verify its owner before recovering the lock');
+    throw error;
+  });
+  const owned = await lock.stat();
+  try {
+    await lock.writeFile(JSON.stringify({ pid: process.pid, ownerInstance, startedAt: new Date().toISOString() })); await lock.sync();
+    return await action(root);
+  } finally {
+    await lock.close();
+    const file = await localPath(root, lockFile); const current = await lstat(file);
+    if (!current.isFile() || current.dev !== owned.dev || current.ino !== owned.ino) throw new Error('Storage mutation/cleanup lock ownership changed');
+    await unlink(file);
+  }
+}
 const recordFile = (root: string, id: string) => path.join(root, '.harness', 'storage', 'units', `${id}.json`);
 const claimFile = (root: string, cacheRoot: string) => path.join(root, '.harness', 'storage', 'claims', `${digest(cacheRoot)}.json`);
+function validLease(value: unknown): value is StorageLease {
+  const lease = value as StorageLease;
+  return !!lease && uuid.test(lease.id) && /^[a-f0-9]{64}$/u.test(lease.ownerHash) && Number.isInteger(lease.ownerPid)
+    && uuid.test(lease.ownerInstance) && typeof lease.createdAt === 'string' && ['active', 'released'].includes(lease.state);
+}
 function validUnit(value: unknown): value is StorageUnit {
   const unit = value as StorageUnit;
   return !!unit && unit.schemaVersion === 1 && uuid.test(unit.id) && /^[a-f0-9]{64}$/u.test(unit.ownerHash) && Number.isInteger(unit.ownerPid) && uuid.test(unit.ownerInstance)
     && typeof unit.createdAt === 'string' && typeof unit.cacheRoot === 'string'
     && /^\.harness\/c\/[0-9a-f-]+\/mct-cache\/client$/u.test(unit.cacheRoot)
     && uuid.test(unit.cacheRoot.split('/')[2]!)
-    && ['active', 'sealed', 'reclaimed'].includes(unit.state);
+    && ['active', 'sealed', 'reclaimed'].includes(unit.state)
+    && (unit.reservation === undefined || (!!unit.reservation && typeof unit.reservation.closed === 'boolean'
+      && Array.isArray(unit.reservation.leases) && unit.reservation.leases.every(validLease)
+      && new Set(unit.reservation.leases.map(lease => lease.id)).size === unit.reservation.leases.length));
 }
 async function readUnit(root: string, id: string): Promise<StorageUnit> {
   if (!uuid.test(id)) throw new Error('Invalid storage unit ID');
@@ -123,14 +162,13 @@ async function readUnit(root: string, id: string): Promise<StorageUnit> {
 }
 
 /** Register only future isolated dependency directories; existing caches cannot acquire ownership. */
-export async function createStorageUnit(projectRoot: string, cacheRoot: string): Promise<StorageUnitHandle> {
-  const root = await realpath(projectRoot);
+async function createUnit(root: string, projectRoot: string, cacheRoot: string, reservation: boolean): Promise<StorageUnitHandle> {
   const cache = await localPath(projectRoot, cacheRoot);
   const rel = relative(root, cache);
   if (!/^\.harness\/c\/[0-9a-f-]+\/mct-cache\/client$/u.test(rel) || !uuid.test(rel.split('/')[2]!)) throw new Error('Storage unit must be an isolated .harness/c/<uuid>/mct-cache/client dependency directory');
   try { await lstat(cache); throw new Error('Existing storage data cannot be adopted'); } catch (error) { if (!missing(error)) throw error; }
   const handle = { id: randomUUID(), ownerToken: randomUUID() };
-  const unit: StorageUnit = { schemaVersion: 1, ...{ id: handle.id }, ownerHash: digest(handle.ownerToken), ownerPid: process.pid, ownerInstance, createdAt: new Date().toISOString(), cacheRoot: rel, state: 'active' };
+  const unit: StorageUnit = { schemaVersion: 1, id: handle.id, ownerHash: digest(handle.ownerToken), ownerPid: process.pid, ownerInstance, createdAt: new Date().toISOString(), cacheRoot: rel, state: 'active', ...(reservation ? { reservation: { closed: false, leases: [] } } : {}) };
   const claimPath = await localPath(root, claimFile(root, rel));
   await mkdir(path.dirname(claimPath), { recursive: true });
   const claim = await open(claimPath, 'wx');
@@ -138,6 +176,83 @@ export async function createStorageUnit(projectRoot: string, cacheRoot: string):
   finally { await claim.close(); }
   await atomicJson(root, recordFile(root, unit.id), unit);
   return handle;
+}
+export async function createStorageUnit(projectRoot: string, cacheRoot: string): Promise<StorageUnitHandle> {
+  return withStorageLock(projectRoot, root => createUnit(root, projectRoot, cacheRoot, false));
+}
+
+/** A reservation remains protected across process restarts, including gaps with no active leases. */
+export async function createStorageReservation(projectRoot: string, cacheRoot: string): Promise<StorageUnitHandle> {
+  return withStorageLock(projectRoot, root => createUnit(root, projectRoot, cacheRoot, true));
+}
+
+function assertOwner(unit: StorageUnit, handle: StorageUnitHandle): void {
+  if (unit.ownerHash !== digest(handle.ownerToken) || unit.ownerPid !== process.pid || unit.ownerInstance !== ownerInstance) throw new Error('Storage ownership does not authorize this operation');
+}
+export async function acquireStorageLease(projectRoot: string, reservation: StorageUnitHandle): Promise<StorageLeaseHandle> {
+  return withStorageLock(projectRoot, async root => {
+    const unit = await readUnit(root, reservation.id); assertOwner(unit, reservation);
+    if (!unit.reservation || unit.reservation.closed || unit.state !== 'active') throw new Error('Storage reservation is not open');
+    const cache = await localPath(root, path.join(root, unit.cacheRoot));
+    if (!safeCache(await scan(cache))) throw new Error('Storage cache contains links or mutable/evidence data');
+    const handle: StorageLeaseHandle = { unitId: unit.id, id: randomUUID(), ownerToken: randomUUID() };
+    unit.reservation.leases.push({ id: handle.id, ownerHash: digest(handle.ownerToken), ownerPid: process.pid, ownerInstance, createdAt: new Date().toISOString(), state: 'active' });
+    await atomicJson(root, recordFile(root, unit.id), unit);
+    return handle;
+  });
+}
+
+function sameReference(left: StorageEvidenceReference, right: StorageEvidenceReference): boolean {
+  return left.schemaVersion === right.schemaVersion && left.id === right.id && left.file === right.file && left.sha256 === right.sha256;
+}
+async function validateLeaseProof(root: string, evidenceRoot: string, seal: StorageEvidenceReference, requireReportReference: boolean): Promise<string> {
+  const directory = await localPath(root, evidenceRoot);
+  if (!/^\.harness\/runs\/[a-zA-Z0-9_-]+$/u.test(relative(root, directory))) throw new Error('Storage evidence must be a retained Run directory');
+  await validateStorageEvidenceSeal(directory, seal);
+  if (requireReportReference) {
+    const report = await readReport(root, path.basename(directory));
+    if (!report.storageEvidence?.some(reference => sameReference(reference, seal))) throw new Error('Storage evidence seal is not referenced by the retained Run report');
+  }
+  return relative(root, directory);
+}
+
+/** A lease is released only with confirmed process disposal and an immutable scoped evidence seal. */
+export async function releaseStorageLease(projectRoot: string, handle: StorageLeaseHandle, proof: { stopped: boolean; evidenceRoot: string; seal: StorageEvidenceReference }): Promise<void> {
+  if (proof.stopped !== true) throw new Error('Storage lease owner has not confirmed shutdown');
+  await withStorageLock(projectRoot, async root => {
+    const unit = await readUnit(root, handle.unitId);
+    const lease = unit.reservation?.leases.find(item => item.id === handle.id);
+    if (!lease || lease.ownerHash !== digest(handle.ownerToken) || lease.ownerPid !== process.pid || lease.ownerInstance !== ownerInstance) throw new Error('Storage lease ownership does not authorize release');
+    if (unit.reservation?.closed || unit.state !== 'active') throw new Error('Storage reservation is not open');
+    const evidenceRoot = await validateLeaseProof(root, proof.evidenceRoot, proof.seal, false);
+    if (lease.state === 'released') {
+      if (lease.evidenceRoot !== evidenceRoot || !lease.seal || !sameReference(lease.seal, proof.seal)) throw new Error('Storage lease was released with different evidence');
+      return;
+    }
+    Object.assign(lease, { state: 'released', releasedAt: new Date().toISOString(), evidenceRoot, seal: proof.seal });
+    await atomicJson(root, recordFile(root, unit.id), unit);
+  });
+}
+
+async function validateReservationEvidence(root: string, unit: StorageUnit): Promise<void> {
+  if (!unit.reservation?.leases.length || unit.reservation.leases.some(lease => lease.state !== 'released' || !lease.releasedAt || !lease.evidenceRoot || !lease.seal)) throw new Error('Storage reservation has active or unconfirmed leases');
+  for (const lease of unit.reservation.leases) await validateLeaseProof(root, path.join(root, lease.evidenceRoot!), lease.seal!, true);
+}
+
+/** Close explicitly after the final restart; only a closed reservation can become reclaimable. */
+export async function closeStorageReservation(projectRoot: string, handle: StorageUnitHandle): Promise<void> {
+  await withStorageLock(projectRoot, async root => {
+    const unit = await readUnit(root, handle.id); assertOwner(unit, handle);
+    if (!unit.reservation) throw new Error('Storage unit is not a reservation');
+    await validateReservationEvidence(root, unit);
+    if (unit.reservation.closed && ['sealed', 'reclaimed'].includes(unit.state)) return;
+    if (unit.reservation.closed || unit.state !== 'active') throw new Error('Storage reservation state is inconsistent');
+    const cache = await localPath(root, path.join(root, unit.cacheRoot));
+    const cacheSnapshot = await scan(cache);
+    if (!safeCache(cacheSnapshot)) throw new Error('Storage cache contains links or mutable/evidence data');
+    await atomicJson(root, recordFile(root, unit.id), { ...unit, state: 'sealed', sealedAt: new Date().toISOString(), cache: cacheSnapshot,
+      reservation: { ...unit.reservation, closed: true } });
+  });
 }
 
 function safeCache(items: FileIdentity[]): boolean {
@@ -180,27 +295,32 @@ async function evidenceSnapshot(root: string, evidenceRoot: string): Promise<Fil
 /** Called only after the runtime has confirmed every owned process stopped and evidence was saved. */
 export async function finalizeStorageUnit(projectRoot: string, handle: StorageUnitHandle, proof: { stopped: boolean; evidenceRoot: string }): Promise<void> {
   if (proof.stopped !== true) throw new Error('Storage unit owner has not confirmed shutdown');
-  const root = await realpath(projectRoot);
-  const unit = await readUnit(root, handle.id);
-  if (unit.ownerHash !== digest(handle.ownerToken) || unit.ownerPid !== process.pid || unit.ownerInstance !== ownerInstance || unit.state !== 'active') throw new Error('Storage ownership does not authorize finalization');
-  const cache = await localPath(root, path.join(root, unit.cacheRoot));
-  const cacheSnapshot = await scan(cache);
-  if (!safeCache(cacheSnapshot)) throw new Error('Storage cache contains links or mutable/evidence data');
-  const evidenceRoot = await localPath(projectRoot, proof.evidenceRoot);
-  const evidence = await evidenceSnapshot(root, evidenceRoot);
-  if (!sameSnapshot(cacheSnapshot, await scan(cache), false)) throw new Error('Storage cache changed during evidence sealing');
-  await atomicJson(root, recordFile(root, unit.id), { ...unit, state: 'sealed', sealedAt: new Date().toISOString(), evidenceRoot: relative(root, evidenceRoot), evidence, cache: cacheSnapshot });
+  await withStorageLock(projectRoot, async root => {
+    const unit = await readUnit(root, handle.id); assertOwner(unit, handle);
+    if (unit.reservation || unit.state !== 'active') throw new Error('Storage ownership does not authorize finalization');
+    const cache = await localPath(root, path.join(root, unit.cacheRoot));
+    const cacheSnapshot = await scan(cache);
+    if (!safeCache(cacheSnapshot)) throw new Error('Storage cache contains links or mutable/evidence data');
+    const evidenceRoot = await localPath(projectRoot, proof.evidenceRoot);
+    const evidence = await evidenceSnapshot(root, evidenceRoot);
+    if (!sameSnapshot(cacheSnapshot, await scan(cache), false)) throw new Error('Storage cache changed during evidence sealing');
+    await atomicJson(root, recordFile(root, unit.id), { ...unit, state: 'sealed', sealedAt: new Date().toISOString(), evidenceRoot: relative(root, evidenceRoot), evidence, cache: cacheSnapshot });
+  });
 }
 
 async function unitReason(root: string, unit: StorageUnit): Promise<string | undefined> {
+  if (unit.reservation && !unit.reservation.closed) return unit.reservation.leases.some(lease => lease.state === 'active') ? 'active-or-unconfirmed-lease' : 'open-reservation';
   if (unit.state === 'active') return 'active-or-unconfirmed-owner';
   if (unit.state === 'reclaimed') return 'already-reclaimed';
-  if (!unit.sealedAt || !unit.evidenceRoot || !validSnapshot(unit.evidence) || !validSnapshot(unit.cache)) return 'incomplete-evidence-seal';
+  if (!unit.sealedAt || !validSnapshot(unit.cache)) return 'incomplete-evidence-seal';
+  if (!unit.reservation && (!unit.evidenceRoot || !validSnapshot(unit.evidence))) return 'incomplete-evidence-seal';
   try {
     const cache = await scan(await localPath(root, path.join(root, unit.cacheRoot)));
     if (!safeCache(cache)) return 'links-or-mutable-data';
     if (!sameSnapshot(unit.cache, cache, true)) return 'cache-changed-after-shutdown';
-    if (!sameSnapshot(unit.evidence, await evidenceSnapshot(root, path.join(root, unit.evidenceRoot)), false)) return 'evidence-changed-or-incomplete';
+    if (unit.reservation) {
+      try { await validateReservationEvidence(root, unit); } catch { return 'scoped-evidence-changed-or-incomplete'; }
+    } else if (!sameSnapshot(unit.evidence!, await evidenceSnapshot(root, path.join(root, unit.evidenceRoot!)), false)) return 'evidence-changed-or-incomplete';
     return undefined;
   } catch { return 'unverifiable-path-or-evidence'; }
 }
@@ -236,12 +356,7 @@ export async function inventoryStorage(projectRoot: string): Promise<StorageInve
 export async function cleanupStorage(projectRoot: string, options: { apply?: boolean; unitIds?: string[] } = {}): Promise<StorageCleanupResult> {
   if (options.unitIds?.some(id => !uuid.test(id))) throw new Error('Invalid storage unit ID');
   if (!options.apply) return { ...(await inventory(projectRoot, options.unitIds)).result, apply: false, deletedBytes: 0, errors: [] };
-  const root = await realpath(projectRoot);
-  const lockFile = await localPath(root, path.join(root, '.harness', 'storage', 'cleanup.lock'));
-  await mkdir(path.dirname(lockFile), { recursive: true });
-  const lock = await open(lockFile, 'wx').catch((error: NodeJS.ErrnoException) => { if (error.code === 'EEXIST') throw new Error('Storage cleanup is locked; verify its owner before recovering the lock'); throw error; });
-  try {
-    await lock.writeFile(JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString() })); await lock.sync();
+  return withStorageLock(projectRoot, async root => {
     const { result: measured, units } = await inventory(root, options.unitIds);
     const auditPath = `.harness/storage/audits/${randomUUID()}.json`;
     const result: StorageCleanupResult = { ...measured, apply: true, deletedBytes: 0, errors: [], auditPath };
@@ -286,5 +401,5 @@ export async function cleanupStorage(projectRoot: string, options: { apply?: boo
     result.retainedBytes = result.entries.filter(item => item.disposition === 'retain').reduce((sum, item) => sum + item.logicalBytes, 0);
     await saveAudit(true);
     return result;
-  } finally { await lock.close(); await unlink(await localPath(root, lockFile)); }
+  });
 }

@@ -110,6 +110,8 @@ Statuses distinguish passed, failed, unsupported, skipped, and infrastructure-er
 
 `mch test --target <id> --suite <id>` runs a selected suite. Without a suite it runs required suites. `--all --profile release` runs all required suites and refuses a suite filter. Empty requirements do not establish release validation. Required capabilities must match the runtime. Gradle provides `gradle-task` and `test-results`.
 
+Repeated target/suite selections are rejected before execution because they would reuse retained evidence paths. On Windows, selected IDs differing only by case also collide and are rejected. Use distinct IDs or separate Runs for repeated attempts.
+
 ## External processes
 
 Add this fragment to shared configuration and supply the actual test script:
@@ -197,7 +199,7 @@ Optional `assetCache` is an absolute `assets/objects` directory. `assetCaches` m
 
 ## Local storage policy
 
-Foundry 0.1.9 adds optional storage settings to ignored `harness.local.json`:
+Configure optional storage settings in ignored `harness.local.json`:
 
 ```json
 {
@@ -210,7 +212,7 @@ Foundry 0.1.9 adds optional storage settings to ignored `harness.local.json`:
 }
 ```
 
-All fields are optional. `managedCaches` and `sharedAssets` default to `false`; `cleanup` defaults to `"retain"`. Existing projects keep their previous storage behavior until they opt in. `cleanup: "after-run"` requires `managedCaches: true` and requests reclamation of eligible newly managed client dependency caches after process termination and finalized evidence verification. It does not change the existing process-lifecycle meaning of runtime `cleanup: true`.
+All fields are optional. `managedCaches` and `sharedAssets` default to `false`; `cleanup` defaults to `"retain"`. Existing projects keep their previous storage behavior until they opt in. Both automatic policies require `managedCaches: true`: `cleanup: "after-run"` waits for the finished Run and verified evidence; `cleanup: "after-suite"` can reclaim an eligible suite's dependency cache before the next suite in the same Run. The latter requires closed ownership reservations, released process leases, immutable scoped evidence and a saved report linking that evidence. It does not change the existing process-lifecycle meaning of runtime `cleanup: true`.
 
 Managed caches separate disposable client dependencies from the Run's retained world, settings and evidence. Shared assets reuse only verified content-addressed Minecraft objects/indexes through copy-on-write clones when available, with independent copies as a fallback. Worlds, configuration, native libraries and run evidence are never shared. See [storage management](storage.md) for exact retained paths, cleanup eligibility, previews and limitations.
 
@@ -223,3 +225,5 @@ With Foundry 0.1.7 or later, process-suite JSON cases may include `detail: { "fi
 Reports record config/tool/artifact hashes, resolved metadata, case results, Git revision, and source identity. Tracked dirty changes have a redacted patch and hash; untracked files have path/hash identities but no saved contents. Credentials are redacted and local Java/EULA state is not copied into shared configuration. Replay cannot restore missing dirty sources or local prerequisites: inspect `reproduction.limitations`.
 
 With 0.1.8, a survival companion may also declare `captureEvidence: {schemaVersion: 1, files: [{file, sha256}]}`. File paths resolve relative to the companion and must stay in the Run. Retention and report inspection hash-check every referenced raw capture, expected manifest and log, add them to `suite.evidence`, and reject missing/tampered or unknown-version evidence. Existing companions without this optional contract remain readable.
+
+Foundry 0.1.10 reports may include top-level `storageEvidence` references to immutable, hashed per-suite evidence seals. Save and read validate every referenced seal and its files even while the Run is unfinished. This allows safe dependency reclamation between suites without freezing the mutable whole-Run report. Configuration/report schema version remains 1; reports using `storageEvidence` require a 0.1.10-or-later reader. Older reports without the field remain readable. See [storage lifecycle](storage.md#runtime-integration-api).
