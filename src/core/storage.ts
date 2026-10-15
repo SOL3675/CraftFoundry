@@ -7,7 +7,7 @@ import { readReport } from '../reporting/report.js';
 export interface StorageUnitHandle { id: string; ownerToken: string }
 interface FileIdentity { path: string; kind: 'file' | 'directory' | 'link'; bytes: number; modifiedMs?: number; sha256?: string; link?: string }
 interface StorageUnit {
-  schemaVersion: 1; id: string; ownerHash: string; ownerPid: number; createdAt: string;
+  schemaVersion: 1; id: string; ownerHash: string; ownerPid: number; ownerInstance: string; createdAt: string;
   cacheRoot: string; state: 'active' | 'sealed' | 'reclaimed';
   evidenceRoot?: string; sealedAt?: string; evidence?: FileIdentity[]; cache?: FileIdentity[];
 }
@@ -28,6 +28,9 @@ export interface StorageAudit extends StorageCleanupResult {
   retainedScope: { root: '.harness'; exceptCacheRoots: string[]; logicalBytes: number; entryCount: number };
 }
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+// Never recover a live owner's shutdown authority from a persisted PID/token.
+// A restarted process receives another instance even if the OS reuses its PID.
+const ownerInstance = randomUUID();
 const forbidden = new Set(['world', 'worlds', 'saves', 'config', 'logs', 'crash-reports', 'screenshots', 'report.json', 'results.json', 'junit.xml', 'options.txt', 'servers.dat']);
 const relative = (root: string, file: string) => path.relative(root, file).replaceAll('\\', '/');
 const digest = (value: string) => createHash('sha256').update(value).digest('hex');
@@ -104,7 +107,7 @@ const recordFile = (root: string, id: string) => path.join(root, '.harness', 'st
 const claimFile = (root: string, cacheRoot: string) => path.join(root, '.harness', 'storage', 'claims', `${digest(cacheRoot)}.json`);
 function validUnit(value: unknown): value is StorageUnit {
   const unit = value as StorageUnit;
-  return !!unit && unit.schemaVersion === 1 && uuid.test(unit.id) && /^[a-f0-9]{64}$/u.test(unit.ownerHash) && Number.isInteger(unit.ownerPid)
+  return !!unit && unit.schemaVersion === 1 && uuid.test(unit.id) && /^[a-f0-9]{64}$/u.test(unit.ownerHash) && Number.isInteger(unit.ownerPid) && uuid.test(unit.ownerInstance)
     && typeof unit.createdAt === 'string' && typeof unit.cacheRoot === 'string'
     && /^\.harness\/c\/[0-9a-f-]+\/mct-cache\/client$/u.test(unit.cacheRoot)
     && uuid.test(unit.cacheRoot.split('/')[2]!)
@@ -115,7 +118,7 @@ async function readUnit(root: string, id: string): Promise<StorageUnit> {
   const unit: unknown = JSON.parse(await readFile(await localPath(root, recordFile(root, id)), 'utf8'));
   if (!validUnit(unit) || unit.id !== id) throw new Error('Invalid storage ownership record');
   const claim = JSON.parse(await readFile(await localPath(root, claimFile(root, unit.cacheRoot)), 'utf8'));
-  if (claim.id !== unit.id || claim.ownerHash !== unit.ownerHash || claim.cacheRoot !== unit.cacheRoot) throw new Error('Storage ownership claim does not match');
+  if (claim.id !== unit.id || claim.ownerHash !== unit.ownerHash || claim.ownerInstance !== unit.ownerInstance || claim.cacheRoot !== unit.cacheRoot) throw new Error('Storage ownership claim does not match');
   return unit;
 }
 
@@ -127,11 +130,11 @@ export async function createStorageUnit(projectRoot: string, cacheRoot: string):
   if (!/^\.harness\/c\/[0-9a-f-]+\/mct-cache\/client$/u.test(rel) || !uuid.test(rel.split('/')[2]!)) throw new Error('Storage unit must be an isolated .harness/c/<uuid>/mct-cache/client dependency directory');
   try { await lstat(cache); throw new Error('Existing storage data cannot be adopted'); } catch (error) { if (!missing(error)) throw error; }
   const handle = { id: randomUUID(), ownerToken: randomUUID() };
-  const unit: StorageUnit = { schemaVersion: 1, ...{ id: handle.id }, ownerHash: digest(handle.ownerToken), ownerPid: process.pid, createdAt: new Date().toISOString(), cacheRoot: rel, state: 'active' };
+  const unit: StorageUnit = { schemaVersion: 1, ...{ id: handle.id }, ownerHash: digest(handle.ownerToken), ownerPid: process.pid, ownerInstance, createdAt: new Date().toISOString(), cacheRoot: rel, state: 'active' };
   const claimPath = await localPath(root, claimFile(root, rel));
   await mkdir(path.dirname(claimPath), { recursive: true });
   const claim = await open(claimPath, 'wx');
-  try { await claim.writeFile(JSON.stringify({ id: unit.id, ownerHash: unit.ownerHash, cacheRoot: rel })); await claim.sync(); }
+  try { await claim.writeFile(JSON.stringify({ id: unit.id, ownerHash: unit.ownerHash, ownerInstance, cacheRoot: rel })); await claim.sync(); }
   finally { await claim.close(); }
   await atomicJson(root, recordFile(root, unit.id), unit);
   return handle;
@@ -179,7 +182,7 @@ export async function finalizeStorageUnit(projectRoot: string, handle: StorageUn
   if (proof.stopped !== true) throw new Error('Storage unit owner has not confirmed shutdown');
   const root = await realpath(projectRoot);
   const unit = await readUnit(root, handle.id);
-  if (unit.ownerHash !== digest(handle.ownerToken) || unit.ownerPid !== process.pid || unit.state !== 'active') throw new Error('Storage ownership does not authorize finalization');
+  if (unit.ownerHash !== digest(handle.ownerToken) || unit.ownerPid !== process.pid || unit.ownerInstance !== ownerInstance || unit.state !== 'active') throw new Error('Storage ownership does not authorize finalization');
   const cache = await localPath(root, path.join(root, unit.cacheRoot));
   const cacheSnapshot = await scan(cache);
   if (!safeCache(cacheSnapshot)) throw new Error('Storage cache contains links or mutable/evidence data');

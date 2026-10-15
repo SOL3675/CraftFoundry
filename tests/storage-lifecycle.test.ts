@@ -18,8 +18,13 @@ test('managed shutdown attestation waits for all evidence retention, and an evid
   const processResult = { status: 'passed' as const, exitCode: 0, signal: null, durationMs: 0, stdout: '', stderr: '', logs: { stdout: join(root, 'stdout.log'), stderr: join(root, 'stderr.log') } };
   await writeFile(processResult.logs.stdout, 'retained'); await writeFile(processResult.logs.stderr, '');
   for (const method of ['prepare', 'start', 'waitReady'] as const) t.mock.method(OwnedServer.prototype, method, async () => {});
-  t.mock.method(OwnedServer.prototype, 'stop', async () => processResult);
-  t.mock.method(OwnedServer.prototype, 'collectEvidence', async () => []);
+  let failServerStop = false;
+  let failServerEvidence = false;
+  t.mock.method(OwnedServer.prototype, 'stop', async () => failServerStop ? { ...processResult, error: 'Stop confirmation failed despite exit zero' } : processResult);
+  t.mock.method(OwnedServer.prototype, 'collectEvidence', async () => {
+    if (failServerEvidence) throw new Error('Retained server evidence write failed');
+    return [];
+  });
   let failEvidence = true;
   t.mock.method(McPilotRuntimeAdapter.prototype, 'create', async function(this: McPilotRuntimeAdapter) {
     await mkdir(join(this.cache, 'client/runtime/libraries'), { recursive: true });
@@ -43,6 +48,16 @@ test('managed shutdown attestation waits for all evidence retention, and an evid
   assert.equal(inventory.reclaimableBytes, 0);
   assert.ok(inventory.entries.some(item => item.path.endsWith('dependency.jar') && item.reason === 'active-or-unconfirmed-owner'));
   failEvidence = false;
+  failServerEvidence = true;
+  const evidenceFailure = await run('server-evidence-failed');
+  assert.equal(evidenceFailure.cases.at(-1)?.status, 'infrastructure-error');
+  assert.equal(handles.length, 0, 'a caught server-evidence error must not attest completion');
+  failServerEvidence = false;
+  failServerStop = true;
+  const stopFailure = await run('server-stop-unconfirmed');
+  assert.equal(stopFailure.cases.at(-1)?.status, 'infrastructure-error');
+  assert.equal(handles.length, 0, 'exit zero does not override a failed process disposal confirmation');
+  failServerStop = false;
   const result = await run('evidence-complete');
   assert.equal(handles.length, 1, 'a stopped unit is reported after evidence retention completes');
   assert.ok(result.logs.some(file => file.endsWith('client-smoke-client.log')));

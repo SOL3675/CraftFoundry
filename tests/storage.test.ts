@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { appendFile, lstat, mkdir, mkdtemp, readFile, realpath, rm, symlink, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -62,6 +64,22 @@ test('active units, unfinished reports, wrong ownership and stopped=false cannot
   delete data.report.finishedAt; await saveReport(data.run, data.report);
   await assert.rejects(seal(data), /unfinished/);
   assert.equal((await cleanupStorage(data.root, { apply: true })).deletedBytes, 0);
+});
+
+test('a transferred owner token cannot finalize after restart even when the recorded PID is reused', async t => {
+  const data = await fixture(t);
+  const storageModule = new URL('../dist/core/storage.js', import.meta.url).href;
+  const source = `import {createStorageUnit} from ${JSON.stringify(storageModule)}; console.log(JSON.stringify(await createStorageUnit(process.argv[1], process.argv[2])));`;
+  const child = await promisify(execFile)(process.execPath, ['--input-type=module', '-e', source, data.root, data.cache], { windowsHide: true });
+  const handle = JSON.parse(child.stdout);
+  await mkdir(data.cache, { recursive: true }); await writeFile(path.join(data.cache, 'dependency.jar'), 'retain');
+  const recordFile = path.join(data.root, '.harness/storage/units', `${handle.id}.json`);
+  const record = JSON.parse(await readFile(recordFile, 'utf8'));
+  record.ownerPid = process.pid; // Simulate OS reuse without changing the original process instance.
+  await writeFile(recordFile, JSON.stringify(record));
+  await assert.rejects(finalizeStorageUnit(data.root, handle, { stopped: true, evidenceRoot: data.run }), /ownership/);
+  assert.equal((await cleanupStorage(data.root, { apply: true })).deletedBytes, 0);
+  assert.equal(await readFile(path.join(data.cache, 'dependency.jar'), 'utf8'), 'retain');
 });
 
 test('existing caches and unknown .harness data remain unowned and cannot be adopted', async t => {

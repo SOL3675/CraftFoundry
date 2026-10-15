@@ -114,6 +114,7 @@ async function runPilotTest(loaded: LoadedConfig, targetId: string, runtime: Run
   let peer: McPilotRuntimeAdapter | undefined;
   const storageUnits = new Map<McPilotRuntimeAdapter, StorageUnitHandle>();
   const stoppedStorageUnits: StorageUnitHandle[] = [];
+  let lifecycleComplete = false;
   const conditionTimeout = Math.min(loaded.local.timeouts?.test ?? 30_000, 30_000);
   const username = smoke ? 'MchSmoke' : 'MchTest';
   try {
@@ -229,7 +230,7 @@ async function runPilotTest(loaded: LoadedConfig, targetId: string, runtime: Run
     }
     try {
       const result = await server.stop();
-      if (result) { logs.push(reportPath(result.logs.stdout), reportPath(result.logs.stderr)); if (result.exitCode !== 0) failures.push(`Server cleanup ended with ${result.status}, exit ${result.exitCode}`); }
+      if (result) { logs.push(reportPath(result.logs.stdout), reportPath(result.logs.stderr)); if (result.status !== 'passed' || result.exitCode !== 0 || result.error) failures.push(`Server cleanup ended with ${result.status}, exit ${result.exitCode}${result.error ? `: ${result.error}` : ''}`); }
       for (const file of await server.collectEvidence()) evidence.push(reportPath(join(server.directory, file)));
     } catch (error) { failures.push(`Server cleanup: ${(error as Error).message}`); }
     cleanup.status = failures.length ? 'infrastructure-error' : 'passed'; cleanup.message = failures.length ? failures.join('; ') : undefined;
@@ -254,10 +255,11 @@ async function runPilotTest(loaded: LoadedConfig, targetId: string, runtime: Run
         catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
       }
     }
+    lifecycleComplete = failures.length === 0;
   }
   // Publish shutdown attestations only after every retained log/evidence write
   // above has succeeded. An evidence error must leave the unit active.
-  for (const unit of stoppedStorageUnits) options.onStorageUnitStopped?.(unit);
+  if (lifecycleComplete) for (const unit of stoppedStorageUnits) options.onStorageUnitStopped?.(unit);
   return { cases, logs: [...new Set(logs)], evidence: [...new Set(evidence)], metadata };
 }
 
