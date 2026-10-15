@@ -66,7 +66,7 @@ try {
   assert.ok(!existsSync(join(packageRoot, 'projects')) && !existsSync(join(packageRoot, 'scripts/atlas-survival.mjs')));
   assert.ok(!existsSync(join(packageRoot, '.harness')) && !existsSync(join(packageRoot, 'harness.local.json')));
   // Resolve only the installed package's explicit exports, with no repository source imports.
-  execFileSync(process.execPath, ['--input-type=module', '-e', "for (const part of ['core/config','core/capture-identity','core/cache','core/tools','core/types','adapters/runtime/server','adapters/runtime/mc-pilot']) await import('craft-foundry/' + part)"], { cwd: directory, encoding: 'utf8' });
+  execFileSync(process.execPath, ['--input-type=module', '-e', "for (const part of ['core/config','core/capture-identity','core/cache','core/tools','core/types','core/storage','adapters/runtime/server','adapters/runtime/mc-pilot']) await import('craft-foundry/' + part)"], { cwd: directory, encoding: 'utf8' });
   writeFileSync(join(directory, 'case-contract.ts'), `import type { CaseResult } from 'craft-foundry/core/types';
 const result: CaseResult = {id:'survival.item',status:'unsupported',message:'Human summary',detail:{file:'results.json.evidence.json',pointer:'/details/0'},diagnostics:{schemaVersion:1,counts:{incomplete:1,unknown:0,stopReasons:0}}};
 export {result};`);
@@ -94,6 +94,20 @@ writeFileSync('results.json', JSON.stringify({schemaVersion:1,cases:[{id:'surviv
     suites: { survival: { driver: 'process', runtime: 'analysis', results: 'results.json', expectedTests: ['survival.item'] } },
     runtimes: { analysis: { kind: 'server', capabilities: [], command: { executable: process.execPath, args: ['{projectRoot}/produce.mjs'] } } },
   }));
+  // The installed CLI must preserve historical caches and evidence even when a
+  // consumer opts future managed sessions into automatic dependency cleanup.
+  writeFileSync(join(directory, 'harness.local.json'), JSON.stringify({ schemaVersion: 1, storage: { managedCaches: true, sharedAssets: true, cleanup: 'after-run' } }));
+  const historicalCache = join(directory, '.harness/c/historical/mct-cache/client/libraries/old.jar');
+  mkdirSync(join(historicalCache, '..'), { recursive: true }); writeFileSync(historicalCache, 'Unowned historical cache');
+  const storageInventory = cli('storage'), storagePreview = cli('storage', '--clean');
+  assert.equal(storageInventory.sizeKind, 'logical'); assert.equal(storageInventory.reclaimableBytes, 0);
+  assert.equal(storagePreview.apply, false); assert.equal(storagePreview.deletedBytes, 0);
+  assert.deepEqual(storagePreview.entries, storageInventory.entries);
+  const historicalEntry = storagePreview.entries.find(item => item.path === '.harness/c/historical/mct-cache/client/libraries/old.jar');
+  assert.equal(historicalEntry?.disposition, 'retain'); assert.equal(historicalEntry.reason, 'unmarked-or-retained-data');
+  assert.ok(!existsSync(join(directory, '.harness/storage')), 'inventory and default cleanup preview stay read-only');
+  const invalidStorageFlags = spawnSync(process.execPath, [join(packageRoot, 'dist/cli/main.js'), 'storage', '--apply', '--json'], { cwd: directory, encoding: 'utf8' });
+  assert.equal(invalidStorageFlags.status, 2); assert.match(JSON.parse(invalidStorageFlags.stdout).error, /require --clean/);
   const tested = spawnSync(process.execPath, [join(packageRoot, 'dist/cli/main.js'), 'test', '--target', 'fabric', '--json'], { cwd: directory, encoding: 'utf8' });
   assert.equal(tested.status, 1, tested.stderr); const run = JSON.parse(tested.stdout);
   const caseResult = run.targets[0].suites[0].cases[0];
@@ -105,6 +119,27 @@ writeFileSync('results.json', JSON.stringify({schemaVersion:1,cases:[{id:'surviv
   assert.ok(readFileSync(join(runRoot, 'junit.xml'), 'utf8').includes(detailFile + '#/details/0'));
   const bytes = readFileSync(join(runRoot, detailFile));
   assert.ok(bytes.length > 2000000);
+  const managed = JSON.parse(execFileSync(process.execPath, ['--input-type=module', '-e', `
+import {randomUUID} from 'node:crypto'; import {mkdir,writeFile} from 'node:fs/promises'; import {join} from 'node:path';
+import {createStorageUnit,finalizeStorageUnit} from 'craft-foundry/core/storage';
+const root=process.cwd(),cache=join(root,'.harness/c',randomUUID(),'mct-cache/client');
+const handle=await createStorageUnit(root,cache); await mkdir(join(cache,'libraries'),{recursive:true});
+await writeFile(join(cache,'libraries/dependency.jar'),Buffer.alloc(4096,7));
+await finalizeStorageUnit(root,handle,{stopped:true,evidenceRoot:process.argv[1]});
+console.log(JSON.stringify({id:handle.id,cache}));`, runRoot], { cwd: directory, encoding: 'utf8' }));
+  const managedPreview = cli('storage', '--clean', '--unit', managed.id);
+  assert.equal(managedPreview.reclaimableBytes, 4096); assert.equal(managedPreview.deletedBytes, 0);
+  assert.ok(existsSync(join(managed.cache, 'libraries/dependency.jar')));
+  const storageApplied = cli('storage', '--clean', '--unit', managed.id, '--apply');
+  assert.equal(storageApplied.apply, true); assert.equal(storageApplied.deletedBytes, 4096); assert.deepEqual(storageApplied.errors, []);
+  assert.ok(!existsSync(join(managed.cache, 'libraries/dependency.jar')));
+  const storageAudit = JSON.parse(readFileSync(join(directory, storageApplied.auditPath), 'utf8'));
+  assert.equal(storageAudit.complete, true); assert.equal(storageAudit.deletedBytes, 4096);
+  const repeatedCleanup = cli('storage', '--clean', '--unit', managed.id, '--apply');
+  assert.equal(repeatedCleanup.deletedBytes, 0); assert.deepEqual(repeatedCleanup.errors, []);
+  assert.equal(readFileSync(historicalCache, 'utf8'), 'Unowned historical cache');
+  assert.deepEqual(cli('report', '--run', run.id), run);
+  assert.deepEqual(readFileSync(join(runRoot, detailFile)), bytes);
   // Install the unmodified CI template in its documented .github/scripts layout.
   const collector = join(packageRoot, '.github/scripts/collect-fixture-evidence.mjs');
   mkdirSync(join(packageRoot, '.github/scripts'), { recursive: true });
@@ -136,5 +171,5 @@ writeFileSync('results.json', JSON.stringify({schemaVersion:1,cases:[{id:'surviv
   assert.equal(missingRun.status, 2, missingRun.stderr);
   assert.equal(JSON.parse(missingRun.stdout).targets[0].suites[0].status, 'infrastructure-error');
   assert.equal(JSON.parse(missingRun.stdout).targets[0].suites[0].detected, 0);
-  console.log(JSON.stringify({ version, packageSha256: createHash('sha256').update(readFileSync(options['--package'])).digest('hex'), previousVersion: previous?.version ?? null, skills: updated, targets: 4, exports: 7, template: 'exact-target and finite boundaries verified', diagnostics: 'installed process/report/JUnit/CI detail preservation verified' }));
+  console.log(JSON.stringify({ version, packageSha256: createHash('sha256').update(readFileSync(options['--package'])).digest('hex'), previousVersion: previous?.version ?? null, skills: updated, targets: 4, exports: 8, template: 'exact-target and finite boundaries verified', diagnostics: 'installed process/report/JUnit/CI detail preservation verified', storage: 'installed inventory, read-only preview, explicit apply and retained historical cache/evidence verified' }));
 } finally { rmSync(directory, { recursive: true, force: true }); }

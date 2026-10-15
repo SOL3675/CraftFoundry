@@ -2,6 +2,8 @@
 
 [English](README.md)
 
+容量の確認には `mch storage --json`、安全な回収のプレビューには `mch storage --clean --json` を使います。[容量管理](docs/storage.md)では、明示的に有効化したクライアント依存キャッシュと検証済みアセットの再利用を扱い、ワールド・設定・証拠を保持します。清掃の既定はプレビューで、従来の管理情報がないデータは回収しません。
+
 CraftFoundry は Minecraft Java Edition の Mod を、開発者・Agent・CI が同じ CLI からビルド・検証するハーネスです。npm パッケージは `craft-foundry`、CLI は `mch` です。プロジェクトの Gradle Wrapper を使い、配布 JAR のハッシュ、テスト結果、証拠を保存します。
 
 ## 導入とプロジェクトへの接続

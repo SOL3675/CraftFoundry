@@ -48,6 +48,7 @@ export interface HarnessConfig {
 }
 export interface LocalConfig {
   schemaVersion: 1;
+  storage?: { managedCaches?: boolean; sharedAssets?: boolean; cleanup?: 'retain' | 'after-run' };
   assetCache?: string;
   assetCaches?: Record<string, string>;
   java?: Record<string, string>;

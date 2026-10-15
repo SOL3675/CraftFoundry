@@ -195,6 +195,25 @@ Timeouts are positive milliseconds. Build defaults to 600 seconds, Gradle/proces
 
 Optional `assetCache` is an absolute `assets/objects` directory. `assetCaches` maps Minecraft versions to such directories and takes precedence. Objects and adjacent content-addressed indexes are verified against SHA-1 names before reuse; native libraries, prepared markers, personal settings, and worlds are never reused. Rewritten index JSON must be replaced with separately obtained official bytes, not accepted under an invalid hash.
 
+## Local storage policy
+
+Foundry 0.1.9 adds optional storage settings to ignored `harness.local.json`:
+
+```json
+{
+  "schemaVersion": 1,
+  "storage": {
+    "managedCaches": true,
+    "sharedAssets": true,
+    "cleanup": "retain"
+  }
+}
+```
+
+All fields are optional. `managedCaches` and `sharedAssets` default to `false`; `cleanup` defaults to `"retain"`. Existing projects keep their previous storage behavior until they opt in. `cleanup: "after-run"` requires `managedCaches: true` and requests reclamation of eligible newly managed client dependency caches after process termination and finalized evidence verification. It does not change the existing process-lifecycle meaning of runtime `cleanup: true`.
+
+Managed caches separate disposable client dependencies from the Run's retained world, settings and evidence. Shared assets reuse only verified content-addressed Minecraft objects/indexes through copy-on-write clones when available, with independent copies as a fallback. Worlds, configuration, native libraries and run evidence are never shared. See [storage management](storage.md) for exact retained paths, cleanup eligibility, previews and limitations.
+
 ## Evidence
 
 Reports and JUnit live under `.harness/runs/<run-id>/`; evidence paths are relative to that Run. Exit codes are 0/1/2 for success/validation failure/environment error. JSON mode writes one stdout object and progress to stderr.

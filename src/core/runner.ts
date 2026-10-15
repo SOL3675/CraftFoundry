@@ -14,6 +14,7 @@ import { createRun, saveReport } from '../reporting/report.js';
 import { clientDisplayEnvironment } from '../platform/display.js';
 import type { CaseStatus, RunReport, SuiteReport, TargetReport } from '../reporting/types.js';
 import { retainResultDetails } from '../reporting/result-details.js';
+import { finalizeStorageUnit, cleanupStorage, type StorageUnitHandle } from './storage.js';
 
 export interface RunOptions { command: 'build' | 'inspect' | 'test'; targets: string[]; suites?: string[]; profile?: 'release'; signal?: AbortSignal }
 function processStatus(process: ProcessResult): CaseStatus {
@@ -47,6 +48,7 @@ export async function executeRun(loaded: LoadedConfig, options: RunOptions): Pro
   const command = `mch ${options.command} ${options.targets.length === 1 ? `--target ${options.targets[0]}` : '--all'}${suffix}`;
   const { report, directory } = await createRun(loaded, command);
   const adapter = new GradleBuildAdapter(loaded);
+  const stoppedStorageUnits: StorageUnitHandle[] = [];
   try {
     for (const id of options.targets) {
       const target = loaded.config.targets[id];
@@ -69,7 +71,7 @@ export async function executeRun(loaded: LoadedConfig, options: RunOptions): Pro
         const suiteIds = options.profile === 'release' || !options.suites?.length ? target.requiredSuites : options.suites;
         if (!suiteIds.length) { result.status = 'failed'; result.error = 'No suites selected or required; no release validation performed'; }
         for (const suiteId of suiteIds) {
-          result.suites.push(await executeSuite(loaded, adapter, id, suiteId, directory, result.artifacts, options.signal));
+          result.suites.push(await executeSuite(loaded, adapter, id, suiteId, directory, result.artifacts, options.signal, unit => stoppedStorageUnits.push(unit)));
           await saveReport(directory, report);
         }
         if (suiteIds.length) result.status = aggregate(result.suites.map(suite => suite.status));
@@ -82,11 +84,16 @@ export async function executeRun(loaded: LoadedConfig, options: RunOptions): Pro
   } finally {
     report.finishedAt = new Date().toISOString();
     await saveReport(directory, report);
+    for (const unit of stoppedStorageUnits) await finalizeStorageUnit(loaded.root, unit, { stopped: true, evidenceRoot: directory });
+    if (loaded.local.storage?.cleanup === 'after-run' && stoppedStorageUnits.length) {
+      const cleanup = await cleanupStorage(loaded.root, { apply: true, unitIds: stoppedStorageUnits.map(unit => unit.id) });
+      if (cleanup.errors.length) throw new Error(`Storage cleanup incomplete; inspect ${cleanup.auditPath}: ${cleanup.errors.join('; ')}`);
+    }
   }
   return report;
 }
 
-async function executeSuite(loaded: LoadedConfig, adapter: GradleBuildAdapter, targetId: string, suiteId: string, directory: string, artifacts: TargetReport['artifacts'], signal?: AbortSignal): Promise<SuiteReport> {
+async function executeSuite(loaded: LoadedConfig, adapter: GradleBuildAdapter, targetId: string, suiteId: string, directory: string, artifacts: TargetReport['artifacts'], signal?: AbortSignal, onStorageUnitStopped?: (unit: StorageUnitHandle) => void): Promise<SuiteReport> {
   const target = loaded.config.targets[targetId]!;
   const required = target.requiredSuites.includes(suiteId);
   const declared = loaded.config.suites[suiteId];
@@ -111,7 +118,7 @@ async function executeSuite(loaded: LoadedConfig, adapter: GradleBuildAdapter, t
       const helperPath = await resolveTool(loaded, suite.pilot.helper, signal);
       const helperSha256 = loaded.lock.tools[suite.pilot.helper]!.sha256;
       const driver = suite.driver === 'client-smoke' ? runClientSmoke : suite.driver === 'fixture-multi-client' ? runFixtureMultiClient : runFixtureMultiplayer;
-      const result = await driver(loaded, targetId, runtime, artifacts, directory, path.join(directory, 'sessions', targetId, suiteId), { backendRoot, helperArtifact: { path: helperPath, sha256: helperSha256 }, signal, reportRoot: directory, assetCache: loaded.local.assetCaches?.[target.minecraft] ?? loaded.local.assetCache });
+      const result = await driver(loaded, targetId, runtime, artifacts, directory, path.join(directory, 'sessions', targetId, suiteId), { backendRoot, helperArtifact: { path: helperPath, sha256: helperSha256 }, signal, reportRoot: directory, assetCache: loaded.local.assetCaches?.[target.minecraft] ?? loaded.local.assetCache, onStorageUnitStopped });
       return { ...evaluateSuite(suiteId, suite, result.cases, required), logs: result.logs, evidence: result.evidence, runtimeMetadata: { ...result.metadata, backendIdentity, displayEnvironment } };
     }
     if (suite.driver === 'server-persistence') {

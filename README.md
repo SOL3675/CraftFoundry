@@ -29,6 +29,8 @@ mch report --run <run-id> --json
 
 Reports and JUnit are saved under `.harness/runs/<run-id>/`. Exit codes are success `0`, validation failure `1`, and configuration/environment error `2`. JSON mode emits one stdout object and progress to stderr. Required unsupported, skipped, unstable or zero-detected cases cannot pass a release gate.
 
+Inspect disk use with `mch storage --json` and preview safe reclamation with `mch storage --clean --json`. [Storage management](docs/storage.md) provides opt-in managed client caches and verified asset reuse while retaining worlds, configuration and evidence. Cleanup defaults to a preview; historical unmarked data is retained.
+
 Install bundled agent Skills with `mch skills install --destination .agents/skills --json`; the installer preserves user edits. Install the fixed client backend with `mch tools install mc-pilot --project <directory> --json` and configure its returned path locally. See [Skills](docs/skills.md), [tools](docs/tools.md), [Linux](docs/linux.md) and [CI](docs/ci.md).
 
 ## Review acquisition changes

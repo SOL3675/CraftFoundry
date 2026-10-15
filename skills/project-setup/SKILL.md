@@ -9,6 +9,8 @@ Map the project's existing Gradle tasks in `harness.config.json` and export an a
 
 Run `mch doctor --json`, then `mch inspect --target <id> --json`. Treat missing prerequisites as environment diagnostics, not a mod regression. Declare required suites based on the mod's supported side and features. Keep unimplemented required suites explicit; they must prevent a release pass.
 
+Read `docs/storage.md` before enabling local `storage.managedCaches`, `storage.sharedAssets` or `storage.cleanup`. Defaults keep existing behavior. Inventory with `mch storage --json` and preview with `mch storage --clean --json`; applying cleanup requires explicit `--apply` and authorization for those exact targets. Retain historical unmarked data, worlds, settings and evidence. Asset reuse is limited to verified immutable bytes with independent session files; logical sizes do not guarantee physical savings.
+
 
 During setup, inventory custom acquisition mechanisms (including mechanisms outside recipe serialization). For Mods adding custom acquisition on supported Fabric/NeoForge 1.21.1 or Forge/Fabric 1.20.1 targets, declare the repository-only Atlas survival process suite as required, and use `templates/acquisition/README.md` to declare per-Mod definitions, mechanisms and positive/missing-prerequisite regression cases. Preserve an explicit unsupported suite when current capture/definitions or access are unavailable. A valid config or provider seed alone is not acquisition coverage. Upgrade consumer Skills using the installer, preserving edited files.
 
