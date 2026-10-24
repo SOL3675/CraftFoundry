@@ -8,7 +8,7 @@
       "java": { "gradle": "jdk21", "toolchain": 21, "game": "jdk21" },
       "tasks": { "build": ["build"], "unit": ["test"] },
       "artifactManifest": "build/harness/fabric-1.21.1.json",
-      "requiredSuites": ["unit", "server-smoke", "server-persistence", "client-smoke", "multiplayer"]
+      "requiredSuites": ["unit"]
     }
   },
   "suites": {

@@ -11,9 +11,13 @@ Place `harness.config.json` at the project root, or select one with `mch --proje
 
 Missing local configuration defaults to schemaVersion 1; a missing tool lock defaults to an empty tools map. Malformed existing files fail. Local settings cannot override required suites or targets. The complete field definitions are in [config](../schemas/harness.config.schema.json), [local](../schemas/harness.local.schema.json), [tool lock](../schemas/harness.lock.schema.json), [artifact](../schemas/artifact-manifest.schema.json), and [run](../schemas/run.schema.json) schemas.
 
+## Select validation scope
+
+Agree AI checks, human checks and untested scope before implementation using the [plan/result template](../templates/validation/README.md) and [development policy](development.md). `requiredSuites` declares automated requirements; it does not encode pending human GUI/play review. Optional undeployed placeholders do not establish coverage. The fixture matrix remains a harness regression contract; select consumer requirements by supported behavior and the confirmed plan. Do not remove agreed requirements merely to pass.
+
 ## Connect Gradle
 
-Adapt the following example's tasks and result paths to the actual project. The unsupported client suite is intentional and blocks release until a real driver is connected.
+Adapt the following example's tasks, result paths and required suites to the actual project and confirmed plan. Here the client suite is an explicitly required automated check: its unsupported driver blocks this example's automated release gate until connected. A separate human-pending GUI review is recorded in the plan/result document, not as this unsupported suite.
 
 ```json
 {
@@ -63,7 +67,7 @@ Adapt the following example's tasks and result paths to the actual project. The 
 
 `target.build` selects a build root. `target.tasks` maps logical keys to arrays of actual Gradle tasks; `suite.task` selects a key, not a raw task or Gradle option. The local Wrapper runs with `--no-daemon --console=plain`. Operations sharing a build root are serialized. Confirm the recorded owner has ended before recovering a stale `.harness/build-adapter.lock`.
 
-Build runs the `build` mapping, then `inspect` if configured. A declared inspect task must generate a fresh manifest. Without an inspect task, an explicitly provided manifest may be used. Pin Minecraft, loader, mappings, and dependencies in Gradle. Manifest target/Minecraft/loader and an optional declared loaderVersion must match. `caseAliases` maps loader-specific test IDs to common IDs; duplicates and missing IDs still fail. `suiteBindings` selects target-specific runtime/pilot connections while preserving common case requirements.
+Build runs the `build` mapping, then `inspect` if configured. A declared inspect task must generate a fresh manifest. Without an inspect task, an explicitly provided manifest may be used. Pin Minecraft, loader, mappings, and dependencies in Gradle for reproducible builds. Runtime Mod metadata ranges are separate; see [development compatibility guidance](development.md#separate-build-pins-from-runtime-compatibility). Manifest target/Minecraft/loader and an optional declared loaderVersion must match. `caseAliases` maps loader-specific test IDs to common IDs; duplicates and missing IDs still fail. `suiteBindings` selects target-specific runtime/pilot connections while preserving common case requirements.
 
 Use [the Gradle exporter](../templates/gradle/README.md). Preserve an explicit `GRADLE_USER_HOME`; otherwise the harness uses `.harness/cache/gradle/`. Linux fixtures use `gradle/linux.lockfile`, Windows fixtures use `gradle.lockfile`, because native dependencies differ.
 

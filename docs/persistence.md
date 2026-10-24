@@ -1,6 +1,8 @@
 # Test world persistence across a server restart
 
-Use `server-persistence` with Foundry 0.1.8 or later for Mods that save block entities, block-state properties, inventory slots or custom world data. Add it to each supported target's `requiredSuites`. The four packaged fixtures already require it; an existing-project template keeps it unsupported until the Mod supplies actual probes.
+Use `server-persistence` with Foundry 0.1.8 or later when the [confirmed validation plan](../templates/validation/README.md) requires clean-process restart evidence for affected block entities, block-state properties, inventory slots or custom world data. Select representative affected fields/targets; unrelated persistent systems do not require a rerun after every change. Add the suite to `requiredSuites` when it is an agreed automated release requirement. The four packaged fixtures retain their full required regression suite; the existing-project template supplies an optional unsupported placeholder until actual probes are connected.
+
+Human-pending checks are recorded separately from machine outcomes. Agreed prerelease/new-save breaks can omit migration; this test procedure does not mandate a migration/recovery framework. See [development policy](development.md).
 
 The driver prepares a new, empty session below the Run, deploys the recorded distribution/dependency artifacts, starts a dedicated process and waits for readiness. It executes seed commands and baseline assertions, waits for `save-all flush`, sends `stop` and requires a normal exit with code 0. Only after that process ends does it start a second process using the same world, read restoration assertions without reseeding, and stop cleanly again. Each launch retains distinct stdout/stderr logs. `persistence.json` retains the nonce, owner, command responses and case verdicts.
 

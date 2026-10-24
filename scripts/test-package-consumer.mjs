@@ -4,7 +4,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, chmodSync, copyFileSync, cpSync, readFileSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const options = {};
@@ -40,19 +40,48 @@ try {
   npm('install', '--save-dev', '--save-exact', options['--package'], '--ignore-scripts');
   const version = JSON.parse(readFileSync(join(packageRoot, 'package.json'), 'utf8')).version;
   assert.equal(version, JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version);
+  const skillNames = ['development-loop', 'minecraft-development-basics', 'porting', 'project-setup', 'troubleshooting'];
+  const freshDestination = join(directory, 'fresh-skills');
+  const fresh = cli('skills', 'install', '--destination', freshDestination, '--json');
+  assert.deepEqual(fresh.installed.sort(), skillNames.map(name => name + '/SKILL.md'));
+  assert.deepEqual(fresh.updated, []); assert.deepEqual(fresh.preserved, []);
+  const freshProvenance = JSON.parse(readFileSync(join(freshDestination, '.mch-skills.json'), 'utf8'));
+  for (const name of skillNames) {
+    const file = name + '/SKILL.md', bytes = readFileSync(join(freshDestination, file));
+    assert.deepEqual(bytes, readFileSync(join(packageRoot, 'skills', file)));
+    assert.equal(freshProvenance.files[file].version, version);
+    assert.equal(freshProvenance.files[file].sha256, createHash('sha256').update(bytes).digest('hex'));
+  }
+  assert.deepEqual(cli('skills', 'install', '--destination', freshDestination, '--json'), { schemaVersion: 1, version, installed: [], updated: [], preserved: [] });
+  // Model an earlier four-Skill installation with this package's real installer.
+  // Bundle overrides remain isolated here; no consumer checkout is modified.
+  if (!previous) {
+    const { installSkills } = await import(pathToFileURL(join(packageRoot, 'dist/core/skills.js')).href);
+    const oldBundle = join(directory, 'previous-bundle');
+    mkdirSync(oldBundle);
+    for (const name of ['project-setup', 'development-loop', 'porting', 'troubleshooting']) cpSync(join(packageRoot, 'skills', name), join(oldBundle, name), { recursive: true });
+    await installSkills(destination, { sourceRoot: oldBundle, version: '0.1.11' });
+    previous = metadata();
+    writeFileSync(join(destination, 'project-setup/SKILL.md'), 'Consumer customization must survive the actual package upgrade\n');
+  }
   const updated = install(), provenance = metadata();
+  assert.ok(updated.installed.includes('minecraft-development-basics/SKILL.md'));
   assert.equal(provenance.version, version);
   if (previous) {
     assert.equal(readFileSync(join(destination, 'project-setup/SKILL.md'), 'utf8'), 'Consumer customization must survive the actual package upgrade\n');
     assert.deepEqual(provenance.files['project-setup/SKILL.md'], previous.files['project-setup/SKILL.md']);
-    for (const name of ['development-loop', 'porting', 'troubleshooting']) {
-      const file = `${name}/SKILL.md`, bytes = readFileSync(join(destination, file));
-      assert.equal(provenance.files[file].version, version);
-      assert.equal(provenance.files[file].sha256, createHash('sha256').update(bytes).digest('hex'));
-      assert.match(bytes.toString(), /Forge\/Fabric 1\.20\.1|1\.20\.1 collectors/);
-      assert.match(bytes.toString(), /server-persistence/); assert.match(bytes.toString(), /captureRuntime/);
-    }
   }
+  for (const name of ['development-loop', 'minecraft-development-basics', 'porting', 'troubleshooting']) {
+    const file = name + '/SKILL.md', bytes = readFileSync(join(destination, file));
+    assert.deepEqual(bytes, readFileSync(join(packageRoot, 'skills', file)));
+    assert.equal(provenance.files[file].version, version);
+    assert.equal(provenance.files[file].sha256, createHash('sha256').update(bytes).digest('hex'));
+  }
+  assert.ok(existsSync(join(packageRoot, 'templates/validation/README.md')));
+  assert.ok(existsSync(join(packageRoot, 'docs/development.md')));
+  const setupConfig = JSON.parse(readFileSync(join(packageRoot, 'templates/existing-project/harness.config.json'), 'utf8'));
+  assert.deepEqual(setupConfig.targets['fabric-1.21.1'].requiredSuites, ['unit']);
+  assert.equal(setupConfig.suites['server-persistence'].driver, 'unsupported');
   assert.equal(metadata().version, version);
   const repeated = install();
   assert.deepEqual(repeated.installed, []); assert.deepEqual(repeated.updated, []);
@@ -187,5 +216,5 @@ console.log(JSON.stringify({id:handle.id,cache,report}));`, runRoot], { cwd: dir
   assert.equal(missingRun.status, 2, missingRun.stderr);
   assert.equal(JSON.parse(missingRun.stdout).targets[0].suites[0].status, 'infrastructure-error');
   assert.equal(JSON.parse(missingRun.stdout).targets[0].suites[0].detected, 0);
-  console.log(JSON.stringify({ version, packageSha256: createHash('sha256').update(readFileSync(options['--package'])).digest('hex'), previousVersion: previous?.version ?? null, skills: updated, targets: 4, exports: 8, template: 'exact-target and finite boundaries verified', diagnostics: 'installed process/report/JUnit/CI detail preservation verified', storage: 'installed reservations, lease gaps, immutable partial evidence and mid-Run selected cleanup verified' }));
+  console.log(JSON.stringify({ version, packageSha256: createHash('sha256').update(readFileSync(options['--package'])).digest('hex'), previousVersion: previous.version, upgradeSource: options['--previous'] ? 'actual-package' : 'four-skill-model', freshSkills: fresh, skills: updated, targets: 4, exports: 8, template: 'exact-target and finite boundaries verified', diagnostics: 'installed process/report/JUnit/CI detail preservation verified', storage: 'installed reservations, lease gaps, immutable partial evidence and mid-Run selected cleanup verified' }));
 } finally { rmSync(directory, { recursive: true, force: true }); }
