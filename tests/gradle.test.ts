@@ -59,7 +59,10 @@ try {
       tasks: { inspect: ['harnessExport'], build: ['assemble'], slow: ['pause'], failure: ['failure'], hang: ['hang'], suiteA: ['suiteA'], suiteB: ['suiteB'], xmlSuite: ['xmlSuite'] },
       artifactManifest: 'manifest.json', requiredSuites: [], java: { game: 'game-jdk' } } }, suites: {}, runtimes: {} },
     local: { schemaVersion: 1, java: { 'gradle-jdk': path.join(root, 'JDK Gradle'), 'game-jdk': path.join(root, 'JDK Game') },
-      timeouts: { build: 10_000 } }, lock: { schemaVersion: 1, tools: {} } };
+      // These synthetic wrappers test behavior, not a ten-second startup SLA.
+      // Windows also starts a PowerShell Job Object guardian before Node.
+      // Explicit timeout cases below override this success-path budget.
+      timeouts: { build: 30_000 } }, lock: { schemaVersion: 1, tools: {} } };
   await writeFile(path.join(root, 'java-input.json'), JSON.stringify(Object.values(loaded.local.java!)));
   return { root, manifest, loaded, adapter: new GradleBuildAdapter(loaded), options: { logDir: path.join(root, 'logs') },
     cleanup: () => rm(root, { recursive: true, force: true }) };
@@ -69,7 +72,7 @@ test('build refreshes manifest, preserves logs, selects Gradle Java role and sna
   const f = await fixture();
   try {
     const result = await f.adapter.build('fabric-1.21.1', f.options);
-    assert.equal(result.status, 'passed', result.error);
+    assert.equal(result.status, 'passed', JSON.stringify(result));
     assert.equal(result.manifest?.target, 'fabric-1.21.1');
     const tasks = (await readFile(path.join(f.root, 'tasks.jsonl'), 'utf8')).trim().split('\n').map(value => JSON.parse(value));
     const javaLocations = `-Dorg.gradle.java.installations.paths=${Object.values(f.loaded.local.java!).join(',')}`;
@@ -98,7 +101,7 @@ test('wrapper requires explicit project toolchain paths when a dotted environmen
     const locations = Object.values(f.loaded.local.java!).join(',');
     assert.match(locations, /日本語/u); assert.match(locations, /JDK Gradle/u); assert.match(locations, /JDK Game/u);
     const missing = await runProcess({ ...gradleCommand(f.root, [`-Dorg.gradle.java.installations.paths=${locations}`, 'assemble']), cwd: f.root,
-      env: { 'ORG_GRADLE_PROJECT_org.gradle.java.installations.paths': locations }, timeoutMs: 10_000, logDir: path.join(f.root, 'missing-project-property') });
+      env: { 'ORG_GRADLE_PROJECT_org.gradle.java.installations.paths': locations }, timeoutMs: f.loaded.local.timeouts!.build!, logDir: path.join(f.root, 'missing-project-property') });
     assert.equal(missing.status, 'failed'); assert.match(missing.stderr, /Missing explicit project toolchain paths/u);
     const passed = await f.adapter.runTasks('fabric-1.21.1', 'build', f.options);
     assert.equal(passed.status, 'passed', passed.stderr);

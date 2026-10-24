@@ -32,7 +32,9 @@ const snapshot={schemaVersion:1,minecraft:'1.21.1',loader:'fabric',loaderVersion
 mkdirSync('craftatlas/'+label,{recursive:true});writeFileSync('craftatlas/'+label+'/snapshot.json',JSON.stringify(snapshot));console.log('CRAFTATLAS COMPLETE label='+label+' generation=1 path=craftatlas/'+label);}
 if(line==='stop')process.exit(0);}});`);
     await writeFile(path.join(root,'harness.config.json'),JSON.stringify({schemaVersion:1,projectId:'capture-contract',builds:{main:{root:'.',adapter:'gradle'}},targets:{fabric:{minecraft:'1.21.1',loader:'fabric',loaderVersion:'0.16.14',build:'main',tasks:{},artifactManifest:'manifest.json',requiredSuites:[]}},suites:{},runtimes:{server:{kind:'server',capabilities:['dedicated-server'],command:{executable:process.execPath,args:[script]},readyPattern:'Done ready'}}}));
-    await writeFile(path.join(root,'harness.local.json'),JSON.stringify({schemaVersion:1,eulaAccepted:true,timeouts:{start:20000,test:30000,stop:5000}}));
+    // Identity/cleanup assertions allow bounded cold guardian/Node startup;
+    // this fixture is not a twenty-second readiness performance test.
+    await writeFile(path.join(root,'harness.local.json'),JSON.stringify({schemaVersion:1,eulaAccepted:true,timeouts:{start:30000,test:30000,stop:5000}}));
     const atlas = {captureIdentityContractVersion:1,readSnapshot:(file:string)=>JSON.parse(requireFile(file))};
     // Synchronous read represents the collector consumer boundary, independent of this process's expected manifest.
     function requireFile(file:string) { return readFileSync(path.join(file,'snapshot.json'),'utf8'); }

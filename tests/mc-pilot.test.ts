@@ -26,7 +26,9 @@ async function fixture(t: test.TestContext, extra: Record<string, unknown> = {})
   const server = createServer(); await new Promise<void>(accept => server.listen(0, '127.0.0.1', accept));
   const address = server.address(); assert.ok(address && typeof address === 'object'); const wsPort = address.port;
   await new Promise<void>(accept => server.close(() => accept()));
-  const adapter = new McPilotRuntimeAdapter({ backendRoot, runDir: join(dir, 'run'), clientName: 'fixture-client', minecraft: '1.21.1', loader: 'fabric', java: process.execPath, wsPort, requestTimeoutMs: 10_000, sessionTimeoutMs: 30_000, stopTimeoutMs: 2_000, ...extra });
+  // Allow bounded cold Node/Windows guardian startup in functionality tests.
+  // Deadline/cancellation cases select their own short timeout explicitly.
+  const adapter = new McPilotRuntimeAdapter({ backendRoot, runDir: join(dir, 'run'), clientName: 'fixture-client', minecraft: '1.21.1', loader: 'fabric', java: process.execPath, wsPort, requestTimeoutMs: 30_000, sessionTimeoutMs: 30_000, stopTimeoutMs: 2_000, ...extra });
   t.after(async () => { try { await adapter.stop(); } catch {} await rm(dir, { recursive: true, force: true }); });
   return { dir, adapter, backendRoot, wsPort };
 }
@@ -79,6 +81,12 @@ test('mc-pilot deploys only explicit hash-matching JARs and refuses overwrites',
   await assert.rejects(adapter.deployMod(artifact, '0'.repeat(64)), /mismatch/u);
   const deployed = await adapter.deployMod(artifact, hash); assert.equal(await readFile(deployed.path, 'utf8'), 'fixture mod');
   await assert.rejects(adapter.deployMod(artifact, hash), /EEXIST/u); await adapter.stop();
+});
+
+test('an explicit broker startup deadline still fails and reports abnormal cleanup', async t => {
+  const { adapter } = await fixture(t, { requestTimeoutMs: 1 });
+  await assert.rejects(adapter.create(), /mc-pilot broker startup timed out/u);
+  await assert.rejects(adapter.stop(), /cleanup did not finish normally: cancelled/u);
 });
 
 test('mc-pilot request timeout disposes the whole client session', async t => {
