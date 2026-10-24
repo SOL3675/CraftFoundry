@@ -25,7 +25,7 @@ test('bundled install records package version and per-file SHA256; repeated inst
   try {
     const installed = await installSkills(f.destination);
     assert.equal(installed.version, version);
-    assert.equal(installed.installed.length, 4);
+    assert.deepEqual(installed.installed.sort(), ['development-loop', 'minecraft-development-basics', 'porting', 'project-setup', 'troubleshooting'].map(name => `${name}/SKILL.md`));
     assert.deepEqual(installed.updated, []);
     assert.deepEqual(installed.preserved, []);
     const metadata = JSON.parse(await readFile(path.join(f.destination, '.mch-skills.json'), 'utf8'));
@@ -43,17 +43,22 @@ test('upgrades only untouched managed files and keeps original provenance for us
   try {
     assert.equal((await installSkills(f.destination, { sourceRoot: f.sourceRoot, version: '1.0.0' })).installed.length, 3);
     await writeFile(path.join(f.destination, 'project-setup/SKILL.md'), 'my custom setup');
+    await mkdir(path.join(f.sourceRoot, 'minecraft-development-basics'));
+    await writeFile(path.join(f.sourceRoot, 'minecraft-development-basics/SKILL.md'), 'new native basics');
     await writeFile(path.join(f.sourceRoot, 'project-setup/SKILL.md'), 'setup version two');
     await writeFile(path.join(f.sourceRoot, 'project-setup/references/config.md'), 'config version two');
     await writeFile(path.join(f.sourceRoot, 'development-loop/SKILL.md'), 'loop version two');
     const result = await installSkills(f.destination, { sourceRoot: f.sourceRoot, version: '1.1.0' });
     assert.deepEqual(result.updated.sort(), ['development-loop/SKILL.md', 'project-setup/references/config.md']);
     assert.deepEqual(result.preserved, ['project-setup/SKILL.md']);
+    assert.deepEqual(result.installed, ['minecraft-development-basics/SKILL.md']);
+    assert.equal(await readFile(path.join(f.destination, 'minecraft-development-basics/SKILL.md'), 'utf8'), 'new native basics');
     assert.equal(await readFile(path.join(f.destination, 'project-setup/SKILL.md'), 'utf8'), 'my custom setup');
     assert.equal(await readFile(path.join(f.destination, 'project-setup/references/config.md'), 'utf8'), 'config version two');
     const metadata = JSON.parse(await readFile(path.join(f.destination, '.mch-skills.json'), 'utf8'));
     assert.deepEqual(metadata.files['project-setup/SKILL.md'], { sha256: digest('setup version one'), version: '1.0.0' });
     assert.equal(metadata.files['development-loop/SKILL.md'].version, '1.1.0');
+    assert.deepEqual(metadata.files['minecraft-development-basics/SKILL.md'], { sha256: digest('new native basics'), version: '1.1.0' });
     const repeated = await installSkills(f.destination, { sourceRoot: f.sourceRoot, version: '1.1.0' });
     assert.deepEqual(repeated.updated, []);
     assert.deepEqual(repeated.preserved, ['project-setup/SKILL.md']);

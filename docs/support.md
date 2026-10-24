@@ -11,6 +11,8 @@ The configured fixture matrix is deliberately narrow:
 
 Each independent build owns loader-specific registration, mappings, networking, resources, and GameTest launch. Only pure Java logic is shared. Do not infer support for other loader/version combinations or Stonecutter from valid configuration or an upstream catalog.
 
+Consumer development follows a [human-confirmed validation scope](development.md): AI functionality/build/logic and essential affected persistence, separate human GUI/play review, and explicit untested scope. Pending human review is not a failed machine check. Runtime metadata compatibility ranges are distinct from this tested fixture matrix.
+
 Each fixture's release profile requires unit, server-gametest, server-smoke, server-persistence, client-smoke, multiplayer, and multi-client. Contract tests use dummy wrappers and backends. Real-game claims require the matching Run, actual distribution hashes, expected case IDs, and evidence from the current environment. Repository configuration alone is not evidence that hosted CI or Xvfb has passed.
 
 The client backend is fixed mc-pilot 0.15.0; dedicated servers are harness-owned. See [backend limitations](backends/mc-pilot.md). Multiplayer reconnect checks do not establish recovery after a complete server restart. Helpers expose loopback control without authentication; keep them isolated. Finite fixture scenarios are not a guarantee for arbitrary Mods.

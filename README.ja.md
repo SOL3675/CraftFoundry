@@ -31,6 +31,12 @@ mch report --run <run-id> --json
 
 同梱 Agent Skills は `mch skills install --destination .agents/skills --json` で導入します。installer は利用者の編集を維持します。固定 client backend は `mch tools install mc-pilot --project <directory> --json` で導入し、返された path をローカル設定に登録します。[Skills](docs/skills.md)、[ツール](docs/tools.md)、[Linux](docs/linux.md)、[CI](docs/ci.md) を参照してください。
 
+## 実用的な開発計画
+
+実装前に [検証計画・結果テンプレート](templates/validation/README.md) で AI の確認、人の確認、対象外・未検証の範囲を示し、人の確認を得ます。AI は機能が動くこと、build／logic、影響する重要な永続化を中心に確認し、GUI の細かな操作、プレイ感、balance は原則として人が確認します。人の確認待ちは失敗ではなく、網羅的な自動化を始める理由にもなりません。
+
+[開発方針](docs/development.md) は native 機構、ビルド固定と runtime 互換範囲の区別、通常の Mod／config／datapack 変更を扱います。新しい [Minecraft 基礎 Skill](skills/minecraft-development-basics/SKILL.md) は inventory を操作する GUI で vanilla の menu／screen と slot・同期を使う方針などを、版ごとの API 確認とともに示します。合意済みの必須自動検証は、結果と証拠の正確性を維持します。
+
 ## 入手方法の変更をレビューする
 
 [取得定義テンプレート](templates/acquisition/README.md) は独自 serializer・機械・その他の入手源を現在の [CraftAtlas](https://github.com/SOL3675/CraftAtlas) capture と照合する手順です。リポジトリ専用 [survival suite](docs/survival.md) は NeoForge／Fabric 1.21.1 と Forge／Fabric 1.20.1 に対応します。npm パッケージにはガイドとテンプレートが同梱され、runner の実行には Foundry リポジトリと pin 済み Atlas submodule が必要です。

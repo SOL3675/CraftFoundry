@@ -1,5 +1,7 @@
 # Validate multiple targets
 
+This is the full harness fixture regression matrix, not a mandatory plan for every consumer Mod or change. Agree AI/human checks and untested scope using the [validation template](../validation/README.md); use [existing-project](../existing-project/README.md) for a scoped starting example. Human GUI/play review stays separate from machine results.
+
 Copy these two JSON files to a project root containing `fixtures/` and `templates/` in the package's relative layout. The root package configuration is equivalent. Each fixture has an independent Gradle build and shares pure Java logic from `fixtures/common`.
 
 Common suites specify expected case IDs and counts. Target `caseAliases` translate real loader-specific IDs; `suiteBindings` connect target runtimes and helpers. Set local `java17`/`java21` homes, backend paths, deadlines, and existing EULA acceptance in ignored `harness.local.json`. See [configuration](../../docs/configuration.md) and [tools](../../docs/tools.md).

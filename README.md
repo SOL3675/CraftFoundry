@@ -31,6 +31,10 @@ Reports and JUnit are saved under `.harness/runs/<run-id>/`. Exit codes are succ
 
 Install bundled agent Skills with `mch skills install --destination .agents/skills --json`; the installer preserves user edits. Install the fixed client backend with `mch tools install mc-pilot --project <directory> --json` and configure its returned path locally. See [Skills](docs/skills.md), [tools](docs/tools.md), [Linux](docs/linux.md) and [CI](docs/ci.md).
 
+## Plan practical development
+
+Before implementation, agree AI checks, human checks and untested scope using the [validation plan/result template](templates/validation/README.md). AI mainly verifies feature functionality, build/logic and essential affected persistence; detailed GUI interaction, play feel and balance default to humans. Human-pending is not failure or a request for exhaustive automation. See [development policy](docs/development.md) for native mechanisms, runtime compatibility ranges and normal Mod/config/datapack changes. The new [Minecraft basics Skill](skills/minecraft-development-basics/SKILL.md) covers inventory menus/screens and other version-aware foundations. Existing required automated checks keep their truthful result/evidence rules.
+
 ## Review acquisition changes
 
 The [acquisition template](templates/acquisition/README.md) helps review custom serializers, machines and other item sources against current [CraftAtlas](https://github.com/SOL3675/CraftAtlas) captures. The repository-only [survival suite](docs/survival.md) supports NeoForge/Fabric 1.21.1 and Forge/Fabric 1.20.1; the npm package ships guidance and templates, while the runner requires the Foundry repository and its pinned Atlas submodule.
