@@ -1,6 +1,6 @@
 # Bundled skill installation
 
-The 0.1.12 package includes `project-setup`, `development-loop`, `porting`, `troubleshooting` and `minecraft-development-basics`. Install into an explicit directory with `mch skills install --destination <directory> --json`. The result contains the package version and relative lists `installed`, `updated` and `preserved`.
+The 0.1.13 package includes `project-setup`, `development-loop`, `porting`, `troubleshooting` and `minecraft-development-basics`. Install into an explicit directory with `mch skills install --destination <directory> --json`. The result contains the package version and relative lists `installed`, `updated` and `preserved`.
 
 Installation records provenance in `.mch-skills.json`: schema version, bundle version and each managed file's SHA-256/installed version. Updates replace a managed file only while its current hash matches the recorded hash. User-edited and existing unrecorded files are preserved; original records remain unchanged and unrecorded files stay unmanaged. Files removed from a newer bundle are retained.
 
@@ -21,3 +21,5 @@ The four workflow Skills link to [Minecraft development basics](../skills/minecr
 Persistence and acquisition guidance is selected by impact, rather than an unconditional requirement for every Mod edit. Once a current-build acquisition or restart check is agreed as required, its actual identity/evidence/assertion rules still apply. Exact Forge/Fabric 1.20.1 and NeoForge/Fabric 1.21.1 adapters retain their partial/unknown boundaries. The npm package includes templates/docs, not the repository-only Atlas runner/submodule. Harness [storage safety](storage.md) remains intact and does not impose product restrictions.
 
 Add reusable lessons iteratively with applicability, reason, exception and minimum check. Avoid blanket rules from one-off bugs and automatic publication or consumer deployment.
+
+The workflow Skills follow [evidence retention and disposal](storage.md#evidence-retention-and-disposal). Evidence made obsolete by an approved specification change and completed failed attempts no longer needed for current work may be deleted without requiring a fix or passing rerun. Keep evidence in use, needed for investigation/validation/review or explicitly retained, and preserve every reference of a retained report. The dependency cleanup command's `retain` disposition is not a permanent retention mandate. When updating customized Skills, merge this distinction into preserved files rather than retaining an older blanket instruction to keep all failed Runs.

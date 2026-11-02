@@ -11,6 +11,18 @@ mch storage --project <directory> --clean --unit <uuid> --apply --json
 
 The first command inventories storage. `--clean` produces a cleanup preview; deletion requires `--apply` as well. `--unit` selects a `unitId` from the inventory, restricts cleanup to that unit and is valid only with `--clean`. `--apply` is also valid only with `--clean`. Review the machine-readable candidates and retained paths with their reasons before applying. Cleanup rechecks its safety conditions when applying; a preview does not reserve its targets or authorize another project.
 
+## Evidence retention and disposal
+
+Evidence is retained for its current purpose, not permanently because a test failed. Completed Runs and their evidence may be deleted when a specification change removes the tested behavior from the agreed validation scope, or when a completed failed attempt is no longer needed for current investigation, validation, regression work or review. A fix or successful rerun is not a universal prerequisite for deletion. Update validation requirements to reflect approved specification changes; do not remove requirements merely to hide failures.
+
+Keep data while a Run or process is using it, while it is needed for current investigation, validation, human review or a release decision, or when the user or project explicitly requires retention. If its use or retention requirement is unclear, ask before deleting. Failure status alone does not require additional approval for otherwise authorized, in-scope cleanup. Installing or updating Foundry does not itself authorize clearing existing user data.
+
+Prefer deleting an entire unused Run after checking its exact path, confirming that it is inside the intended project and no longer in use, and checking that it contains no separately needed worlds, settings or other data. Do not follow links or junctions outside the intended deletion target. If keeping a report, keep all its referenced evidence, companions, raw captures and seals intact; only unreferenced, unused files qualify for individual removal. Deleting evidence does not change a failure into a pass, remove an unresolved current requirement or establish release validation. Do not rewrite statuses, hashes or references to disguise a failure or missing proof.
+
+The `retain` disposition in `mch storage` means that the dependency cleanup command excludes that data. It is not a permanent prohibition on manual disposal under this policy. Evidence immutability protects the integrity of evidence that is still being used or retained; it does not require keeping an obsolete Run forever. The CLI and automatic policies below continue to reclaim only eligible managed dependencies and never delete Runs or their evidence.
+
+Deleting a Run or its proof prevents later managed dependency cleanup that relies on that proof from qualifying. If reclaiming those dependencies is also intended, use the existing preview/apply workflow while the proof is intact. Otherwise dependent caches may remain retained; do not edit ownership records, leases, seals or other eligibility metadata to bypass verification. Missing or corrupt proof is still an error when inspecting a retained report or qualifying dependency cleanup.
+
 ## Separate dependencies from retained data
 
 Enable future managed client dependency caches explicitly:
@@ -28,18 +40,18 @@ Enable future managed client dependency caches explicitly:
 
 `managedCaches` and `sharedAssets` default to `false`; `cleanup` defaults to `"retain"`. Asset reuse can be enabled independently. Both `"after-run"` and `"after-suite"` require `managedCaches: true`. Managed client dependency caches use `.harness/c/<uuid>/mct-cache` instead of placing the dependency cache inside the Run. Ownership and completion metadata distinguish these units from older client directories. Turning the setting on does not migrate existing data.
 
-The following data stays retained:
+The dependency cleanup command retains or excludes the following data; manual evidence disposal follows [the policy above](#evidence-retention-and-disposal):
 
 | Data | Policy |
 | --- | --- |
-| Run reports, JUnit, results, logs, screenshots and captured evidence | Retain; finalize and hash-check evidence before dependency cleanup |
+| Run reports, JUnit, results, logs, screenshots and captured evidence | Retain during dependency cleanup; finalize and hash-check required proof before reclaiming dependencies |
 | Worlds, runtime settings, `mct-home`, deployed Mods and `.native-aliases` | Retain; never treat these as reclaimable dependency caches |
 | Existing unmarked `.harness/c`, `.harness/runs` and other caches | Retain; no automatic adoption |
 | Active leases, open restart reservations, ambiguous ownership or incomplete evidence | Retain with a reason |
 | External paths and links/junctions | Exclude; never traverse a link to reclaim its destination |
 | Eligible new managed client dependency cache | Preview first; reclaim only with explicit apply or an opt-in automatic policy |
 
-Cleanup is limited to `.harness/c/<uuid>/mct-cache/client`, the managed client dependency subtree. The unit's `unitId` is a separate ownership identity. Cleanup does not delete an entire Run, client home, world or generic Gradle cache. Required reproduction inputs and evidence remain part of the Run. Failed results keep their original status and evidence; reclaiming a disposable dependency cache cannot turn them into a pass.
+Cleanup is limited to `.harness/c/<uuid>/mct-cache/client`, the managed client dependency subtree. The unit's `unitId` is a separate ownership identity. Cleanup does not delete an entire Run, client home, world or generic Gradle cache. Required reproduction inputs and evidence remain part of a retained Run. Failed results keep their original status and evidence during dependency cleanup; reclaiming a disposable dependency cache cannot turn them into a pass.
 
 ## Share verified assets
 
@@ -61,7 +73,7 @@ Directly sharing game-visible asset files is deferred. The current implementatio
 
 The existing runtime `cleanup: true` option continues to control owned process shutdown; it is not a disk-retention setting. Changing the local policy does not authorize historical data cleanup.
 
-A unit becomes eligible only after its owners have positively confirmed shutdown and its required evidence has been saved and verified. Uncertain ownership, an interrupted save, missing or changed proof, a live lease, an open reservation, a linked path or a path outside the managed root keeps the unit retained. Cleanup uses ownership coordination and validates paths again when applying. A crash or forced termination can leave a retained unit; do not edit its ownership/proof metadata merely to make it eligible. Investigate it and preserve evidence before any separately authorized manual action.
+A unit becomes eligible only after its owners have positively confirmed shutdown and its required evidence has been saved and verified. Uncertain ownership, an interrupted save, missing or changed proof, a live lease, an open reservation, a linked path or a path outside the managed root keeps the unit retained. Cleanup uses ownership coordination and validates paths again when applying. A crash or forced termination can leave a retained unit; do not edit its ownership/proof metadata merely to make it eligible. Investigate uncertain ownership before manual action; dispose of unneeded evidence only under [the retention policy](#evidence-retention-and-disposal).
 
 Built-in drivers first await owned client/server disposal, then retain logs, crash evidence and the cleanup trace. They publish completion only after that entire phase succeeds, including server evidence collection. With `after-suite`, the runner links immutable scoped seals in the report, saves the report, closes the reservation and applies selected cleanup before continuing to the next suite. `after-run` continues to wait for the finished report and JUnit. A gameplay assertion failure may still have complete evidence; a stop, evidence-save, report-save, seal or reservation-close failure does not authorize reclamation.
 
@@ -111,6 +123,6 @@ The common `.harness/storage/cleanup.lock` coordinates lifecycle mutations and c
 
 ## Upgrade and recovery
 
-Install the exact reviewed `craft-foundry-0.1.12.tgz`, keeping its integrity in the consumer lockfile, then update bundled Skills with `mch skills install --destination .agents/skills --json`. Review the installer's `preserved` customizations. Configuration and reports remain schema version 1; reports containing `storageEvidence` require a 0.1.10-or-later reader. Reports without that optional field and the existing `after-run` policy remain compatible. Start with inventory and a dry-run, and opt in through local configuration for subsequent Runs. Custom drivers using mid-Run cleanup must implement reservations, leases and report-linked scoped seals before selecting `after-suite`. A candidate package does not authorize clearing historical user data.
+Install the exact reviewed `craft-foundry-0.1.13.tgz`, keeping its integrity in the consumer lockfile, then update bundled Skills with `mch skills install --destination .agents/skills --json`. Review the installer's `preserved` customizations, including any older blanket evidence-retention instructions. Configuration and reports remain schema version 1; reports containing `storageEvidence` require a 0.1.10-or-later reader. Reports without that optional field and the existing `after-run` policy remain compatible. Start with inventory and a dry-run, and opt in through local configuration for subsequent Runs. Custom drivers using mid-Run cleanup must implement reservations, leases and report-linked scoped seals before selecting `after-suite`. A candidate package does not authorize clearing historical user data; authorized manual evidence disposal follows [the retention policy](#evidence-retention-and-disposal).
 
-Reclaimed dependencies are restored by normal preparation from valid local sources or pinned downloads. They are not backed up by cleanup. Retained Run evidence is still needed to inspect failures and reproduce the recorded inputs; a replay command cannot restore missing dirty sources, missing external prerequisites or unavailable downloads. Test packed consumers using disposable data before applying a policy to real workloads; see [distribution](distribution.md) and [support limits](support.md).
+Reclaimed dependencies are restored by normal preparation from valid local sources or pinned downloads. They are not backed up by cleanup. Keep Run evidence for as long as failure inspection or reproduction of its recorded inputs is needed; a replay command cannot restore deleted evidence, missing dirty sources, missing external prerequisites or unavailable downloads. Test packed consumers using disposable data before applying a policy to real workloads; see [distribution](distribution.md) and [support limits](support.md).
