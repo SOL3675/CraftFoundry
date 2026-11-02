@@ -13,7 +13,7 @@ Missing local configuration defaults to schemaVersion 1; a missing tool lock def
 
 ## Select validation scope
 
-Agree AI checks, human checks and untested scope before implementation using the [plan/result template](../templates/validation/README.md) and [development policy](development.md). `requiredSuites` declares automated requirements; it does not encode pending human GUI/play review. Optional undeployed placeholders do not establish coverage. The fixture matrix remains a harness regression contract; select consumer requirements by supported behavior and the confirmed plan. Do not remove agreed requirements merely to pass.
+Agree AI checks, human checks and untested scope before implementation using the [plan/result template](../templates/validation/README.md) and [development policy](development.md). `requiredSuites` declares automated requirements; it does not encode pending human GUI/play review. Optional undeployed placeholders do not establish coverage. The fixture matrix remains a harness regression contract; select consumer requirements by supported behavior and the confirmed plan. Approved specification changes may update requirements for behavior no longer in scope; do not remove agreed requirements merely to pass.
 
 ## Connect Gradle
 
@@ -223,6 +223,8 @@ Managed caches separate disposable client dependencies from the Run's retained w
 ## Evidence
 
 Reports and JUnit live under `.harness/runs/<run-id>/`; evidence paths are relative to that Run. Exit codes are 0/1/2 for success/validation failure/environment error. JSON mode writes one stdout object and progress to stderr.
+
+Evidence does not require permanent retention because a test failed. Obsolete evidence after a specification change and completed failed attempts may be deleted when no longer needed for current work, following [evidence retention and disposal](storage.md#evidence-retention-and-disposal). Keep evidence in use, explicitly retained or needed for investigation, validation or review, and preserve every reference of a retained report. `mch storage` retains evidence during dependency cleanup; that disposition does not prohibit authorized manual disposal.
 
 With Foundry 0.1.7 or later, process-suite JSON cases may include `detail: { "file": "results.json.evidence.json", "pointer": "/details/0" }` and versioned survival diagnostic counts, as described in [survival diagnostics](survival.md#diagnostic-summaries-and-complete-details). Input detail paths are relative to the results file; retained report paths are relative to the Run. Companions must be regular JSON files inside the Run with resolvable RFC 6901 pointers. Missing files, unresolved pointers, unknown survival evidence versions and inconsistent counts fail inspection/retention. Preserve `suite.evidence` files with the report for portable CLI/JUnit/CI inspection. Full driver messages remain in JSON; JUnit abbreviates human text over 1,800 UTF-16 units and references the full detail/message. Ordinary results/reports without these optional fields remain compatible.
 

@@ -9,4 +9,4 @@ CraftFoundry is the Minecraft build/validation harness. Its npm package is `craf
 - CraftAtlas is an independent Git submodule at `projects/craft-atlas`, with its own package manager and lockfile, not a root npm workspace. Pin reachable reviewed commits; never copy a sibling checkout or replace its history. Root install/build/pack must not recurse into Atlas. Run `npm run check:atlas`, `npm run test:atlas`, and `npm run test:atlas:definitions` for the repository-only acquisition integration; see `docs/survival.md`.
 - Remote creation, push, registry publishing, cloud provisioning, and top-level directory moves require task-specific authorization.
 
-- Keep root README and procedural documentation in English, with a linked README.ja.md. Record change rationale in commits, not standalone design restatements or migration/change logs.
+- Keep root README and procedural documentation in English, with a linked README.ja.md. Record change rationale in commit messages, not in the documents.
